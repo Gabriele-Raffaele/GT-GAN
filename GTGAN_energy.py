@@ -35,7 +35,8 @@ import tensorflow as tf
 random_seed = 7777
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
-
+#Net and Net2 are easy wrappers on GRU + Linear used as embedders and generators.
+# Net: GRU (batch_first=True) + Linear. Input (B, T, F) -> Output (B, T, O).
 class Net(nn.Module):
     def __init__(
         self,
@@ -58,7 +59,7 @@ class Net(nn.Module):
             x = self.activation_fn(x)
         return x
 
-
+#Net2: GRU -> use last hidden state (h_n) as input of Linear.
 class Net2(nn.Module):
     def __init__(
         self,
@@ -81,7 +82,7 @@ class Net2(nn.Module):
             x = self.activation_fn(x)
         return x
 
-
+#Adapter that take a state z = [x, h ] and output the deriative for integration
 class ContinuousRNNConverter(torch.nn.Module):
     def __init__(self, input_channels, hidden_channels, model):
         super(ContinuousRNNConverter, self).__init__()
@@ -116,7 +117,7 @@ class ContinuousRNNConverter(torch.nn.Module):
         out[..., self.input_channels:, 0] = model_out
         return out
 
-
+#Small MLP with Tanh at the end, used in the CDE function
 class FinalTanh(torch.nn.Module):
     def __init__(self, input_channels, hidden_channels, hidden_hidden_channels, num_hidden_layers):
         super(FinalTanh, self).__init__()
@@ -294,7 +295,8 @@ class NeuralCDE(torch.nn.Module):
         pred_y = self.activation_fn(pred_y)
         return pred_y
 
-
+#ODE Blocks: RecoveryODENetwork, First_/Mid_/Last_ODENetwork, Multi_Layer_ODENetwork
+#Decoder/Recovery that integrates an hidden state with a GRU-ODE and then applies  gru_obs to update the state when an obeservation occurs. Then creates the reconstruction X_tilde.
 class RecoveryODENetwork(torch.nn.Module):
     def __init__(self, input_size, hidden_size, output_size, gru_input_size, x_hidden, delta_t, last_activation='identity', solver='euler'):
         ''' 24 24 6 24 48
@@ -360,7 +362,7 @@ class RecoveryODENetwork(torch.nn.Module):
     def forward(self, H, times):
         HH = self.x_model(H)
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size, device=HH.device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
@@ -427,7 +429,7 @@ class First_ODENetwork(torch.nn.Module):
     def forward(self, H, times):
         HH = self.x_model(H)
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size, device=HH.device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
@@ -494,7 +496,7 @@ class Mid_ODENetwork(torch.nn.Module):
         # HH = self.x_model(H)
         HH = H
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size, device=HH.device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
@@ -570,7 +572,7 @@ class Last_ODENetwork(torch.nn.Module):
         # HH = self.x_model(H)
         HH = H
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size, device=HH.device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
@@ -727,8 +729,8 @@ def train(
         original_x = batch['original_data'].to(device)
         obs = x[:, :, -1]
         x = x[:, :, :-1]
-        time = torch.FloatTensor(list(range(24))).cuda()
-        final_index = (torch.ones(batch_size) * 23).cuda()
+        time = torch.FloatTensor(list(range(24))).to(device)
+        final_index = (torch.ones(batch_size) * 23).to(device)
         h = embedder(time, train_coeffs, final_index)
         x_tilde = recovery(h, obs)
         x_no_nan = x[~torch.isnan(x)]
@@ -763,8 +765,8 @@ def train(
             obs = x[:, :, -1]
             x = x[:, :, :-1]
             z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
-            time = torch.FloatTensor(list(range(24))).cuda()
-            final_index = (torch.ones(batch_size) * 23).cuda()
+            time = torch.FloatTensor(list(range(24))).to(device)
+            final_index = (torch.ones(batch_size) * 23).to(device)
             h = embedder(time, train_coeffs, final_index)
             times = time
             times = times.unsqueeze(0)
@@ -805,8 +807,8 @@ def train(
             original_x = batch['original_data'].to(device)
             obs = x[:, :, -1]
             x = x[:, :, :-1]
-            time = torch.FloatTensor(list(range(24))).cuda()
-            final_index = (torch.ones(batch_size) * 23).cuda()
+            time = torch.FloatTensor(list(range(24))).to(device)
+            final_index = (torch.ones(batch_size) * 23).to(device)
 
             h = embedder(time, train_coeffs, final_index)
             times = time
@@ -832,8 +834,8 @@ def train(
         original_x = batch['original_data'].to(device)
         obs = x[:, :, -1]
         x = x[:, :, :-1]
-        time = torch.FloatTensor(list(range(24))).cuda()
-        final_index = (torch.ones(batch_size) * 23).cuda()
+        time = torch.FloatTensor(list(range(24))).to(device)
+        final_index = (torch.ones(batch_size) * 23).to(device)
         z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
         h = embedder(time, train_coeffs, final_index)
         times = time.unsqueeze(0)
@@ -894,9 +896,9 @@ def train(
                 x = x[:, :, :-1]
                 z = torch.randn(dataset_size, x.size(
                     1), args.effective_shape).to(device)
-                time = torch.FloatTensor(list(range(24))).cuda()
+                time = torch.FloatTensor(list(range(24))).to(device)
 
-                final_index = (torch.ones(dataset_size) * 23).cuda()
+                final_index = (torch.ones(dataset_size) * 23).to(device)
 
                 ###########################################
                 h = embedder(time, train_coeffs, final_index)
@@ -958,7 +960,7 @@ def train(
     
     generated_data_curr = x_hat.cpu().numpy()
     generated_data = list()
-
+    #TODO: Check if is it correct to return generated_data, because is empty
     return generated_data
 
 
@@ -1165,7 +1167,7 @@ def main():
             x = x[:, :, :-1]
             z = torch.randn(dataset_size, x.size(
                 1), args.effective_shape).to(device)
-            time = torch.FloatTensor(list(range(24))).cuda()
+            time = torch.FloatTensor(list(range(24))).to(device)
             times = time
             times = times.unsqueeze(0)
             times = times.unsqueeze(2)

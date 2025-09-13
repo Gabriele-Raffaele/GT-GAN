@@ -1017,7 +1017,7 @@ def train(
             # visualize(dataset, device, generated_data,args,name)
     print("Finish Joint Training")
 
-    generated_data_curr = x_hat.cpu().numpy()
+    generated_data_curr = x_hat.detach().cpu().numpy()
     
     return generated_data_curr
 
