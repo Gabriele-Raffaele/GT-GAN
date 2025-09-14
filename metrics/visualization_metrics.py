@@ -1,5 +1,7 @@
 from sklearn.manifold import TSNE
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.use('Agg')
 import numpy as np
 import torch
 font_size = 22
