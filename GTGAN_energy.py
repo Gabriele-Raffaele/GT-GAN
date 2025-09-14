@@ -657,17 +657,17 @@ class Multi_Layer_ODENetwork(torch.nn.Module):
 # Computes reconstruction, supervision, adversarial and predictive losses
 # Periodically saves model checkpoints and evaluates metrics
 def train(
-    args,
-    batch_size,
-    max_steps,
+    args, #arguments from parser
+    batch_size, #batch size for training
+    max_steps, #maximum number of training steps (GAN + recovery)
     dataset,
-    device,
-    embedder,
-    generator,
-    supervisor,
-    recovery,
+    device, 
+    embedder, #net that creates the hidden state of the observations
+    generator, #GAN generator
+    supervisor, 
+    recovery, #Reconstruction net from latent space
     discriminator,
-    gamma,
+    gamma, #weight for losses
 ):
     def _loss_e_t0(x_tilde, x):
         return F.mse_loss(x_tilde, x)
@@ -730,7 +730,9 @@ def train(
     supervisor.train()
     recovery.train()
     discriminator.train()
-    
+    #Objective:
+        # - Create a hidden state from the observations using the embedder
+        # - Reconstruct the observations from the hidden state using the recovery net
     print("Start Embedding Network Training")
     for step in range(1, args.first_epoch + 1):
         batch = dataset[batch_size]
@@ -762,6 +764,8 @@ def train(
     print("Finish Embedding Network Training")
     
     print("Start Joint Training")
+    #Objective:
+        # - Train the GAN to generate realistic time series using the latent state learned by the embedder 
     for step in range(1, max_steps+1):
         for _ in range(2):
             generator.train()
@@ -970,7 +974,7 @@ def train(
     
     generated_data_curr = x_hat.detach().cpu().numpy()
     generated_data = list()
-    #TODO: Check if is it correct to return generated_data, because is empty
+    #TODO: Check if is it correct to return generated_data, because is empty -G.R.
     return generated_data
 
 
