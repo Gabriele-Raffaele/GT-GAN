@@ -81,7 +81,8 @@ class Net2(nn.Module):
         if self.activation_fn is not None:
             x = self.activation_fn(x)
         return x
-
+# Converts hidden state and input into derivative for ODE integration
+# Clamps hidden state to avoid instability during integration
 #Adapter that take a state z = [x, h ] and output the deriative for integration
 class ContinuousRNNConverter(torch.nn.Module):
     def __init__(self, input_channels, hidden_channels, model):
@@ -150,7 +151,9 @@ class FinalTanh(torch.nn.Module):
         z = z.tanh()
         return z
 
-
+# Neural CDE model: integrates input trajectory to compute latent states
+# Final linear + sigmoid maps latent state to output
+# Stream option returns all intermediate states or only final state
 class NeuralCDE(torch.nn.Module):
     """A Neural CDE model. Provides a wrapper around the lower-level cdeint function, to get a flexible Neural CDE
     model.
@@ -294,7 +297,10 @@ class NeuralCDE(torch.nn.Module):
         pred_y = self.linear(z_t)
         pred_y = self.activation_fn(pred_y)
         return pred_y
-
+    
+# GRU-ODE based network for reconstruction
+# RecoveryODE integrates hidden state and updates on observation
+# Multi-layer ODE networks combine first, middle, and last ODE blocks
 #ODE Blocks: RecoveryODENetwork, First_/Mid_/Last_ODENetwork, Multi_Layer_ODENetwork
 #Decoder/Recovery that integrates an hidden state with a GRU-ODE and then applies  gru_obs to update the state when an obeservation occurs. Then creates the reconstruction X_tilde.
 class RecoveryODENetwork(torch.nn.Module):
@@ -645,7 +651,11 @@ class Multi_Layer_ODENetwork(torch.nn.Module):
                 out = model(out, times)
         return out
 
-
+# Main training loop:
+# 1) Embedding network training
+# 2) Joint training of generator, supervisor, recovery, and discriminator
+# Computes reconstruction, supervision, adversarial and predictive losses
+# Periodically saves model checkpoints and evaluates metrics
 def train(
     args,
     batch_size,
