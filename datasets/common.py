@@ -9,7 +9,15 @@ sys.path.append(str(here / '..' / '..'))
 
 import controldiffeq
 
-
+"""
+    Creates a PyTorch DataLoader with default settings.
+    
+    Args:
+        dataset: PyTorch TensorDataset
+        kwargs: optional parameters like batch_size, shuffle, drop_last, num_workers
+    Returns:
+        DataLoader instance
+"""
 def dataloader(dataset, **kwargs):
     if 'shuffle' not in kwargs:
         kwargs['shuffle'] = True
@@ -21,8 +29,15 @@ def dataloader(dataset, **kwargs):
         kwargs['num_workers'] = 8
     kwargs['batch_size'] = min(kwargs['batch_size'], len(dataset))
     return torch.utils.data.DataLoader(dataset, **kwargs)
-
-
+"""
+    Splits data into train, validation, and test sets (70/15/15) with stratification.
+    
+    Args:
+        tensor: data tensor to split
+        stratify: tensor for class stratification
+    Returns:
+        train_tensor, val_tensor, test_tensor
+"""
 def split_data(tensor, stratify):
     # 0.7/0.15/0.15 train/val/test split
     (train_tensor, testval_tensor,
@@ -39,7 +54,15 @@ def split_data(tensor, stratify):
                                                                        stratify=testval_stratify)
     return train_tensor, val_tensor, test_tensor
 
-
+"""
+    Normalizes input data using min-max scaling based on training set only.
+    
+    Args:
+        X: input tensor of shape (samples, seq_len, channels)
+        y: labels tensor, used to split data
+    Returns:
+        Normalized tensor of same shape as X
+"""
 def normalise_data(X, y):
     train_X, _, _ = split_data(X, y)
     out = []
@@ -57,6 +80,15 @@ def normalise_data(X, y):
 
 
 def preprocess_data(times, X, y, final_index, append_times, append_intensity):
+    """
+    Preprocesses input data for CDE training:
+        - normalizes X
+        - splits into train, val, test
+        - computes natural cubic spline coefficients
+        - optionally appends time/intensity channels
+    Returns:
+        tuple of processed tensors and coefficients ready for model
+    """
     X = normalise_data(X, y)
 
     # Append extra channels together. Note that the order here: time, intensity, original, is important, and some models
@@ -93,6 +125,14 @@ def preprocess_data(times, X, y, final_index, append_times, append_intensity):
 
 def wrap_data(times, train_coeffs, val_coeffs, test_coeffs, train_y, val_y, test_y, train_final_index, val_final_index,
               test_final_index, device, batch_size, train_X,val_X,test_X, num_workers=4):
+    """
+    Moves data to the specified device, adds one-hot labels, and wraps into PyTorch DataLoaders.
+    
+    Args:
+        times, train_coeffs, val_coeffs, test_coeffs, train_y, val_y, test_y, ...
+    Returns:
+        times, train_dataloader, val_dataloader, test_dataloader, train_dataset, val_dataset, test_dataset
+    """
     # import pdb;pdb.set_trace()
     times = times.to(device)
     train_coeffs = tuple(coeff.to(device) for coeff in train_coeffs)
@@ -150,11 +190,17 @@ def wrap_data(times, train_coeffs, val_coeffs, test_coeffs, train_y, val_y, test
 
 
 def save_data(dir, **tensors):
+    """
+    Saves multiple tensors as .pt files in the specified directory.
+    """
     for tensor_name, tensor_value in tensors.items():
         torch.save(tensor_value, str(dir / tensor_name) + '.pt')
 
 
 def load_data(dir):
+    """
+    Loads all .pt tensor files from a directory into a dictionary.
+    """
     tensors = {}
     for filename in os.listdir(dir):
         if filename.endswith('.pt'):

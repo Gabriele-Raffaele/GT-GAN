@@ -6,6 +6,8 @@ from torchdiffeq import odeint
 from torch.nn.utils.rnn import pack_padded_sequence
 
 # GRU-ODE: Neural Negative Feedback ODE with Bayesian jumps
+# GRU-ODE cell: computes continuous hidden state updates
+# Autonomous version: updates hidden state without external input
 
 class GRUODECell(torch.nn.Module):
     def __init__(self, input_size, hidden_size, bias=True):
@@ -78,7 +80,8 @@ class GRUODECell_Autonomous(torch.nn.Module):
         dh = (1 - z) * (n - h)
         return dh
 
-
+# Full GRU-ODE with reset, update, and new gates
+# Autonomous version uses hidden state only, no input
 class FullGRUODECell(torch.nn.Module):
     def __init__(self, input_size, hidden_size, bias=True):
         """
@@ -155,7 +158,9 @@ class FullGRUODECell_Autonomous(torch.nn.Module):
 
         dh = (1 - z) * (u - h)
         return dh
-
+    
+# GRUObservationCell: updates hidden state based on observed data
+# Logvar version computes Gaussian log-likelihood using mean and log-variance
 class GRUObservationCellLogvar(torch.nn.Module):
     """Implements discrete update based on the received observations."""
 
@@ -243,13 +248,16 @@ class GRUObservationCell(torch.nn.Module):
 
         return h, loss
 
-
+# Initialize weights using Xavier uniform and bias to 0.05
 def init_weights(m):
     if type(m) == torch.nn.Linear:
         torch.nn.init.xavier_uniform_(m.weight)
         if m.bias is not None:
             m.bias.data.fill_(0.05)
 
+# Main Neural Negative Feedback ODE model with Bayesian jumps
+# Combines continuous GRU-ODE evolution and discrete updates from observations
+# Computes pre-jump and post-jump losses for training
 class NNFOwithBayesianJumps(torch.nn.Module):
     ## Neural Negative Feedback ODE with Bayesian jumps
     def __init__(self, input_size, hidden_size, p_hidden, prep_hidden, bias=True, cov_size=1, cov_hidden=1, classification_hidden=1, logvar=True, mixing=1, dropout_rate=0, full_gru_ode=False, solver="euler", impute = True, **options):
@@ -308,7 +316,7 @@ class NNFOwithBayesianJumps(torch.nn.Module):
         self.mixing     = mixing #mixing hyperparameter for loss_1 and loss_2 aggregation.
 
         self.apply(init_weights)
-
+# ode_step: propagate hidden state one ODE step
     def ode_step(self, h, p, delta_t, current_time):
         """Executes a single ODE step."""
         eval_times = torch.tensor([0],device = h.device, dtype = torch.float64)
@@ -340,7 +348,7 @@ class NNFOwithBayesianJumps(torch.nn.Module):
         return h,p,current_time, eval_times, eval_ps
 
         raise ValueError(f"Unknown solver '{self.solver}'.")
-
+# forward: full temporal update, applying ODE and observation updates sequentially
     def forward(self, times, time_ptr, X, M, obs_idx, delta_t, T, cov,
                 return_path=False, smoother = False, class_criterion = None, labels=None):
         """
@@ -462,7 +470,7 @@ class NNFOwithBayesianJumps(torch.nn.Module):
                 return h, loss, class_pred, class_loss_vec
             else:
                 return h, loss, class_pred, loss_1
-
+# Compute KL divergence between predicted distribution and observed data
 def compute_KL_loss(p_obs, X_obs, M_obs, obs_noise_std=1e-2, logvar=True):
     obs_noise_std = torch.tensor(obs_noise_std)
     if logvar:
@@ -479,7 +487,7 @@ def compute_KL_loss(p_obs, X_obs, M_obs, obs_noise_std=1e-2, logvar=True):
 def gaussian_KL(mu_1, mu_2, sigma_1, sigma_2):
     return(torch.log(sigma_2) - torch.log(sigma_1) + (torch.pow(sigma_1,2)+torch.pow((mu_1 - mu_2),2)) / (2*sigma_2**2) - 0.5)
 
-
+# GRU-ODE-Bayes sequence model: propagates hidden state along sequence
 class GRUODEBayesSeq(torch.nn.Module):
     def __init__(self, input_size, hidden_size, p_hidden, prep_hidden, bias=True, cov_size=1, cov_hidden=1, classification_hidden=1, logvar=True, mixing=1, dropout_rate=0, obs_noise_std=1e-2, full_gru_ode=False):
         super().__init__()
@@ -596,7 +604,7 @@ class GRUODEBayesSeq(torch.nn.Module):
             return h, loss, class_pred, np.array(path_t), torch.stack(path_p)
         return h, loss, class_pred
 
-
+# SeqGRUBayes: updates hidden state for observed features only
 class SeqGRUBayes(torch.nn.Module):
     """
 
@@ -716,7 +724,7 @@ class SeqGRUBayes(torch.nn.Module):
         h2[i_obs] = hidden
 
         return h2, loss, losses_pre
-
+# Discretized GRU: GRU-ODE-Bayes without continuous ODE evolution and Bayesian jumps
 class Discretized_GRU(torch.nn.Module):
     ## Discretized GRU model (GRU-ODE-Bayes without ODE and without Bayes)
     def __init__(self, input_size, hidden_size, p_hidden, prep_hidden, bias=True, cov_size=1, cov_hidden=1, classification_hidden=1, logvar=True, mixing=1, dropout_rate=0, impute=True):

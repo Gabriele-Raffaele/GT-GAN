@@ -7,7 +7,10 @@ from tf_slim.layers import layers as _layers
 
 def discriminative_score_metrics (ori_data, generated_data, energy = False):
   """Use post-hoc RNN to classify original data and synthetic data
-  
+  Compute the discriminative score between original and generated data.
+  The idea: train a post-hoc RNN classifier to distinguish real vs. fake samples.
+  If the generator is good, the classifier should perform close to random (50%).
+
   Args:
     - ori_data: original data
     - generated_data: generated synthetic data
@@ -49,7 +52,8 @@ def discriminative_score_metrics (ori_data, generated_data, energy = False):
   # discriminator function
   def discriminator (x, t):
     """Simple discriminator function.
-    
+    GRU-based discriminator.
+    Takes time-series x with lengths t, returns probability of being real.
     Args:
       - x: time-series data
       - t: time information

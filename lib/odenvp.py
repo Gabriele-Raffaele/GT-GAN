@@ -5,6 +5,11 @@ from lib.layers.odefunc import ODEnet
 from lib.layers.squeeze import squeeze, unsqueeze
 import numpy as np
 
+"""
+    Real NVP with continuous-time transformations (CNFs).
+    This class builds a multi-scale generative model that maps
+    input data x <-> latent variables z through invertible flows.
+"""
 
 class ODENVP(nn.Module):
     """
@@ -16,7 +21,9 @@ class ODENVP(nn.Module):
         n_scale (int): Number of scales for the representation z.
         n_resblocks (int): Length of the resnet for each coupling layer.
     """
-
+# Initialize ODENVP model with multi-scale CNF layers
+        # Each scale may include: ODE-based flow + squeezing operation
+        # The first scale can include a preprocessing transform (Logit or ZeroMean)
     def __init__(
         self,
         input_size,
@@ -59,7 +66,8 @@ class ODENVP(nn.Module):
         self.transforms = self._build_net(input_size)
 
         self.dims = [o[1:] for o in self.calc_output_size(input_size)]
-
+    # Build a stack of CNF-based transformations for each scale
+    # After each scale, the tensor is squeezed (downsampled in H,W, upsampled in C)
     def _build_net(self, input_size):
         _, c, h, w = input_size
         transforms = []
@@ -83,7 +91,8 @@ class ODENVP(nn.Module):
             c, h, w = c * 2, h // 2, w // 2
         return nn.ModuleList(transforms)
 
-
+# Compute maximum number of scales allowed given input size
+        # Stop squeezing when spatial dims < 4
     def _calc_n_scale(self, input_size):
         _, _, h, w = input_size
         n_scale = 0
@@ -92,7 +101,7 @@ class ODENVP(nn.Module):
             h = h // 2
             w = w // 2
         return n_scale
-
+ # Compute output tensor size at each scale
     def calc_output_size(self, input_size):
         n, c, h, w = input_size
         output_sizes = []
@@ -105,7 +114,9 @@ class ODENVP(nn.Module):
             else:
                 output_sizes.append((n, c, h, w))
         return tuple(output_sizes)
-
+ # Forward pass:
+        # - if reverse=False: encode input -> latent (logdensity computation)
+        # - if reverse=True: decode latent -> input (generation)
     def forward(self, x, logpx=None, reg_states=tuple(), reverse=False):
         if reverse:
             out = self._generate(x, logpx, reg_states)
@@ -118,7 +129,9 @@ class ODENVP(nn.Module):
             if self.squeeze_first:
                 x = squeeze(x)
             return self._logdensity(x, logpx, reg_states)
-
+        # Encode input x into latent representation z
+        # At each scale, split part of the output ("factor_out") and pass the rest
+        # Concatenate all factors to form z
     def _logdensity(self, x, logpx=None, reg_states=tuple()):
         _logpx = torch.zeros(x.shape[0], 1).to(x) if logpx is None else logpx
         out = []
@@ -134,7 +147,8 @@ class ODENVP(nn.Module):
         out = [o.view(o.size()[0], -1) for o in out]
         out = torch.cat(out, 1)
         return out, _logpx, reg_states
-
+        # Decode latent variable z back into input space
+        # Recombine all factors and apply inverse flows
     def _generate(self, z, logpz=None, reg_states=tuple()):
         z = z.view(z.shape[0], -1)
         zs = []
@@ -153,6 +167,14 @@ class ODENVP(nn.Module):
 
 
 class StackedCNFLayers(layers.SequentialFlow):
+    """
+    A sequence of CNF layers applied at one scale.
+    May include:
+    - CNF before squeezing
+    - SqueezeLayer (downsample H,W, increase channels)
+    - CNF after squeezing
+    """
+    # Build chain of CNFs + optional squeeze + CNFs
     def __init__(
         self,
         initial_size,

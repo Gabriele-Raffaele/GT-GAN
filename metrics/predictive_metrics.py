@@ -7,7 +7,8 @@ from tf_slim.layers import layers as _layers
 tf.compat.v1.disable_eager_execution()
 def extract_time (data):
   """Returns Maximum sequence length and each sequence length.
-  
+  Extract the sequence lengths from the dataset.
+
   Args:
     - data: original data
     
@@ -24,7 +25,13 @@ def extract_time (data):
   return time, max_seq_len
 
 def predictive_score_metrics (ori_data, generated_data):
-  """Report the performance of Post-hoc RNN one-step ahead prediction.
+  """
+  Evaluate predictive score (full multivariate prediction).
+
+  Idea: Train a post-hoc GRU model on generated data for
+  one-step-ahead prediction. Then test on original data.
+  Lower error means generated data preserves temporal dynamics.
+  Report the performance of Post-hoc RNN one-step ahead prediction.
   Args:
     - ori_data: original data
     - generated_data: generated synthetic data
@@ -110,7 +117,14 @@ def predictive_score_metrics (ori_data, generated_data):
 
 def predictive_score_metrics2 (ori_data, generated_data):
   """Report the performance of Post-hoc RNN one-step ahead prediction.
-  
+  Evaluate predictive score (single feature prediction).
+
+  Variant of predictive_score_metrics:
+  - Inputs: all features except the last one (dim-1)
+  - Output: predict only the last feature
+
+  Useful when one feature is considered the main target.
+
   Args:
     - ori_data: original data
     - generated_data: generated synthetic data
