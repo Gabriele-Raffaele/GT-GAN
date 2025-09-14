@@ -918,7 +918,7 @@ def train(
                 temp = generated_data_curr[i, :, :]
                 generated_data1.append(temp)
 
-            generated_data_curr = x_hat.cpu().numpy()
+            generated_data_curr = x_hat.detach().cpu().numpy()
             generated_data2 = list()
             for i in range(dataset_size):
                 temp = generated_data_curr[i, :, :]
@@ -958,7 +958,7 @@ def train(
     supervisor.eval()
     recovery.eval()
     
-    generated_data_curr = x_hat.cpu().numpy()
+    generated_data_curr = x_hat.detach().cpu().numpy()
     generated_data = list()
     #TODO: Check if is it correct to return generated_data, because is empty
     return generated_data
@@ -1182,7 +1182,7 @@ def main():
             temp = generated_data_curr[i, :, :]
             generated_data1.append(temp)
 
-        generated_data_curr = x_hat.cpu().numpy()
+        generated_data_curr = x_hat.detach().cpu().numpy()
         generated_data2 = list()
         for i in range(dataset_size):
             temp = generated_data_curr[i, :, :]
