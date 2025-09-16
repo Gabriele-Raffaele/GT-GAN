@@ -915,7 +915,7 @@ def train(
                 + str(np.round(np.sqrt(loss_e_t0.item()), 4))
             )
 
-        if step % 500 == 0:
+        if step % 10 == 0:
             ##############################################
             # Print discriminative and predictive scores
             # print(metric_results)
