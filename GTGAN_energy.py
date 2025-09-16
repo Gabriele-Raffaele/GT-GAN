@@ -925,7 +925,7 @@ def train(
                 ###########################################
                 x_hat = recovery(h_hat, obs)
                 x = original_x
-                
+            
             generated_data_curr = x.cpu().numpy()
             generated_data1 = list()
             for i in range(dataset_size):
@@ -975,7 +975,7 @@ def train(
     generated_data_curr = x_hat.detach().cpu().numpy()
     generated_data = list()
     #TODO: Check if is it correct to return generated_data, because is empty -G.R.
-    return generated_data
+    return generated_data_curr
 
 
 def train_test_divide(data_x, data_x_hat, train_rate=0.8):

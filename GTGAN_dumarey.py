@@ -963,7 +963,7 @@ def train(
                 x_hat = recovery(h_hat, obs)
                 x = original_x
                 
-
+            '''
             generated_data_curr = x.cpu().numpy()
             generated_data1 = list()
             for i in range(dataset_size):
@@ -1000,6 +1000,7 @@ def train(
             metric_results['predictive_std'] = np.std(predictive_score)
             print(metric_results)
             # visualize(dataset, device, generated_data,args)
+            '''
     print("Finish Joint Training")
 
     #return generated_data_curr
