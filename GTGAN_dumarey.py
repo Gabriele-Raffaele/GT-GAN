@@ -1002,7 +1002,7 @@ def train(
             # visualize(dataset, device, generated_data,args)
     print("Finish Joint Training")
 
-    return generated_data_curr
+    #return generated_data_curr
 
 
 def train_test_divide(data_x, data_x_hat, train_rate=0.8):
@@ -1146,7 +1146,8 @@ def main():
     print(pytorch_total_params)
 
     if args.train == True:
-        generated_data = train(
+        #generated_data = 
+        train(
             args,
             args.batch_size,
             args.max_steps,
