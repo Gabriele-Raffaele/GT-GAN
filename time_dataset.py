@@ -505,6 +505,10 @@ class TimeDataset_irregular(torch.utils.data.Dataset):
         # import pdb;pdb.set_trace()
         base_loc = here / 'datasets'
         loc = here / 'datasets'/(data_name+str(missing_rate))
+        data = np.loadtxt(data_path, delimiter=",", skiprows=1)
+        total_length = len(data)
+        data = data[::-1]
+        
         if os.path.exists(loc):
             tensors = load_data(loc)
             self.train_coeffs = tensors['train_a'], tensors['train_b'], tensors['train_c'], tensors['train_d']
