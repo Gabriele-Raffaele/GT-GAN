@@ -1193,16 +1193,17 @@ def main():
             x_hat = recovery(h_hat, obs)
             x = original_x
 
-
+        '''
         generated_data_curr = x.cpu().numpy()
         generated_data1 = list()
         for i in range(dataset_size):
             temp = generated_data_curr[i, :, :]
             generated_data1.append(temp)
-
+        '''
         generated_data_curr = x_hat.cpu().numpy()
+        generated_data_real = generated_data_curr * dataset.max_val + dataset.min_val
         output_file = pathlib.Path(args.save_dir) / "generated_data_dumarey.csv"
-        np.save(output_file.with_suffix(".npy"), generated_data_curr)
+        np.save(output_file.with_suffix(".npy"), generated_data_real)
         print(f"Synthetic data saved in {output_file}")
         '''
         generated_data2 = list()
