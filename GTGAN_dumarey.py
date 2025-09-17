@@ -1201,8 +1201,8 @@ def main():
             generated_data1.append(temp)
         '''
         generated_data_curr = x_hat.cpu().numpy()
-        print("max", dataset.max_val, "min", dataset.min_val)
-        generated_data_real = generated_data_curr * dataset.max_val + dataset.min_val
+        print("max", dataset.original_max, "min", dataset.original_min)
+        generated_data_real = generated_data_curr * dataset.original_max + dataset.original_min
         output_file = pathlib.Path(args.save_dir) / "generated_data_dumarey.npy"
         np.save(output_file.with_suffix(".npy"), generated_data_real)
         print(f"Synthetic data saved in {output_file}")
