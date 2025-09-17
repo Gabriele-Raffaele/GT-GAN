@@ -513,11 +513,9 @@ class TimeDataset_irregular(torch.utils.data.Dataset):
             self.original_sample = np.array(self.original_sample)
             self.samples = np.array(self.samples)
             self.size = len(self.samples)
-            self.min_val = tensors.get('min_val', None)
-            self.max_val = tensors.get('max_val', None)
-            if self.min_val is None or self.max_val is None:
-                self.min_val = np.min(self.original_sample, axis=(0,1))
-                self.max_val = np.max(self.original_sample, axis=(0,1)) - self.min_val
+            self.original_min = np.min(data,0)
+            self.original_max = np.max(data,0)
+
         else:
             if not os.path.exists(base_loc):
                 os.mkdir(base_loc)    
@@ -569,8 +567,6 @@ class TimeDataset_irregular(torch.utils.data.Dataset):
                     train_b=self.train_coeffs[1], 
                     train_c=self.train_coeffs[2],
                     train_d=self.train_coeffs[3],
-                    min_val=self.min_val,
-                    max_val=self.max_val
                     )
             self.original_sample = np.array(self.original_sample)
             self.samples = np.array(self.samples)
