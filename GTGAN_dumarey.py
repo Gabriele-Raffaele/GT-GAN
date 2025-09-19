@@ -1076,7 +1076,7 @@ def main():
     elif args.data == 'dumarey':
         data_path = here / 'datasets/dumarey.csv'
         dataset = TimeDataset(data_path, args.seq_len, args.data, args.missing_value)
-        input_size = 6
+        input_size = 15
     elif args.data == 'energy':
         data_path = here / 'datasets/energy_data.csv'
         dataset = TimeDataset(data_path, args.seq_len, args.data, args.missing_value)
