@@ -1074,7 +1074,7 @@ def main():
         dataset = TimeDataset_irregular(data_path, args.seq_len,args.data,args.missing_value)
         input_size = 6
     elif args.data == 'dumarey':
-        data_path = here / 'datasets/dumarey_data.csv'
+        data_path = here / 'datasets/dumarey.csv'
         dataset = TimeDataset(data_path, args.seq_len, args.data, args.missing_value)
         input_size = 6
     elif args.data == 'energy':
