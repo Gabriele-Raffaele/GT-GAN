@@ -1068,10 +1068,19 @@ def main():
     # args.aug_mapping = True
     device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
     print(device)
+    #TODO: is it bettere to use TimeDataset instead of TimeDataset_regular /irregular?
     if args.data == 'stock':
         data_path = here / 'datasets/stock_data.csv'
         dataset = TimeDataset_irregular(data_path, args.seq_len,args.data,args.missing_value)
         input_size = 6
+    elif args.data == 'dumarey':
+        data_path = here / 'datasets/dumarey_data.csv'
+        dataset = TimeDataset_regular(data_path, args.seq_len)
+        input_size = 6
+    elif args.data == 'energy':
+        data_path = here / 'datasets/energy_data.csv'
+        dataset = TimeDataset_regular(data_path, args.seq_len)
+        input_size = 28
     hidden_size = 24
     num_layers = 3
     x_hidden = 48

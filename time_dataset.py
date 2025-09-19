@@ -13,6 +13,8 @@ import sktime.utils.load_data
 import collections as co
 import controldiffeq
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 def normalize(data):
     numerator = data - np.min(data, 0)
     denominator = np.max(data, 0) - np.min(data, 0)
@@ -71,8 +73,8 @@ class SineDataset(torch.utils.data.Dataset):
                 self.data.append(tmp)
             self.data = np.array(self.data)
             self.original_sample = np.array(self.original_sample)
-            norm_data_tensor = torch.Tensor(self.data[:,:,:-1]).float().cuda()
-            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).cuda()
+            norm_data_tensor = torch.Tensor(self.data[:,:,:-1]).float().to(device)
+            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).to(device)
             self.last = torch.Tensor(self.data[:,:,-1][:,-1]).float()
             self.train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, norm_data_tensor)
             self.original_sample = torch.tensor(self.original_sample)
@@ -184,10 +186,10 @@ class MujocoDataset(torch.utils.data.Dataset):
                         
             self.samples = np.array(self.samples)
             
-            norm_data_tensor = torch.Tensor(self.samples[:,:,:-1]).float().cuda()
+            norm_data_tensor = torch.Tensor(self.samples[:,:,:-1]).float().to(device)
             # time 0 ~ seq 까지 다 해줌 
             # 학습할때는 final index만 가져감 
-            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).cuda()
+            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).to(device)
             self.last = torch.Tensor(self.samples[:,:,-1][:,-1]).float()
             self.train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, norm_data_tensor)
             self.original_sample = torch.tensor(self.original_sample)
@@ -359,10 +361,10 @@ class TimeDataset(torch.utils.data.Dataset):
             
             self.samples = np.array(self.samples)
             
-            norm_data_tensor = torch.Tensor(self.samples[:,:,:-1]).float().cuda()
+            norm_data_tensor = torch.Tensor(self.samples[:,:,:-1]).float().to(device)
             # time 0 ~ seq 까지 다 해줌 
             # 학습할때는 final index만 가져감 
-            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).cuda()
+            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).to(device)
             self.last = torch.Tensor(self.samples[:,:,-1][:,-1]).float()
             self.train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, norm_data_tensor)
             self.original_sample = torch.tensor(self.original_sample)
@@ -557,10 +559,10 @@ class TimeDataset_irregular(torch.utils.data.Dataset):
             
             self.samples = np.array(self.samples)
             
-            norm_data_tensor = torch.Tensor(self.samples[:,:,:-1]).float().cuda()
+            norm_data_tensor = torch.Tensor(self.samples[:,:,:-1]).float().to(device)
             # time 0 ~ seq 까지 다 해줌 
             # 학습할때는 final index만 가져감 
-            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).cuda()
+            time = torch.FloatTensor(list(range(norm_data_tensor.size(1)))).to(device)
             self.last = torch.Tensor(self.samples[:,:,-1][:,-1]).float()
             self.train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, norm_data_tensor)
             self.original_sample = torch.tensor(self.original_sample)
