@@ -35,7 +35,7 @@ import tensorflow as tf
 random_seed = 7777
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class Net(nn.Module):
     def __init__(
         self,
@@ -750,8 +750,8 @@ def train(
         obs = x[:, :, -1]
         x = x[:, :, :-1]
         #final_index = obs[:,-1]
-        time = torch.FloatTensor(list(range(24))).cuda()
-        final_index = (torch.ones(batch_size) * 23).cuda()
+        time = torch.FloatTensor(list(range(24))).to(device)
+        final_index = (torch.ones(batch_size) * 23).to(device)
         #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
         ###########################################
         h = embedder(time, train_coeffs, final_index)
@@ -802,8 +802,8 @@ def train(
             x = x[:, :, :-1]
             z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
 
-            time = torch.FloatTensor(list(range(24))).cuda()
-            final_index = (torch.ones(batch_size) * 23).cuda()
+            time = torch.FloatTensor(list(range(24))).to(device)
+            final_index = (torch.ones(batch_size) * 23).to(device)
             #############Generator#####################
             h = embedder(time, train_coeffs, final_index)
             times = time
@@ -849,8 +849,8 @@ def train(
             original_x = batch['original_data'].to(device)
             obs = x[:, :, -1]
             x = x[:, :, :-1]
-            time = torch.FloatTensor(list(range(24))).cuda()
-            final_index = (torch.ones(batch_size) * 23).cuda()
+            time = torch.FloatTensor(list(range(24))).to(device)
+            final_index = (torch.ones(batch_size) * 23).to(device)
             h = embedder(time, train_coeffs, final_index)
             times = time
             times = times.unsqueeze(0)
@@ -876,8 +876,8 @@ def train(
         obs = x[:, :, -1]
         x = x[:, :, :-1]
         z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
-        time = torch.FloatTensor(list(range(24))).cuda()
-        final_index = (torch.ones(batch_size) * 23).cuda()
+        time = torch.FloatTensor(list(range(24))).to(device)
+        final_index = (torch.ones(batch_size) * 23).to(device)
         h = embedder(time, train_coeffs, final_index)
         times = time.unsqueeze(0)
         times = times.unsqueeze(2)
@@ -944,9 +944,9 @@ def train(
                 x = x[:, :, :-1]
                 z = torch.randn(dataset_size, x.size(
                     1), args.effective_shape).to(device)
-                time = torch.FloatTensor(list(range(24))).cuda()
+                time = torch.FloatTensor(list(range(24))).to(device)
 
-                final_index = (torch.ones(dataset_size) * 23).cuda()
+                final_index = (torch.ones(dataset_size) * 23).to(device)
 
                 ###########################################
                 h = embedder(time, train_coeffs, final_index)
@@ -1190,8 +1190,8 @@ def main():
             obs = x[:, :, -1]
             x = x[:, :, :-1]
             z = torch.randn(dataset_size, x.size(1), args.effective_shape).to(device)
-            time = torch.FloatTensor(list(range(24))).cuda()
-            final_index = (torch.ones(dataset_size) * 23).cuda()
+            time = torch.FloatTensor(list(range(24))).to(device)
+            final_index = (torch.ones(dataset_size) * 23).to(device)
             ###########################################
             times = time
             times = times.unsqueeze(0)
