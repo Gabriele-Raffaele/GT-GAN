@@ -730,14 +730,14 @@ def train(
     recovery.train()
     discriminator.train()
 
-    load = False
+    #load = False
     here = pathlib.Path(__file__).resolve().parent
-    fname = here / 'stock_model/stock_pretrained_0.7'
-    os.makedirs(fname, exist_ok=True)
-    fname = fname/'embedder.pt'
+    #fname = here / 'dumarey_model/dumarey_pretrained'
     #os.makedirs(fname, exist_ok=True)
-    if os.path.isfile(fname):
-        load = True
+    #fname = fname/'embedder.pt'
+    #os.makedirs(fname, exist_ok=True)
+    #if os.path.isfile(fname):
+    #    load = True
     print(recovery)
     print(discriminator)
 
@@ -780,11 +780,12 @@ def train(
     print("Finish Embedding Network Training")
     
     path = here / 'dumarey_model/dumarey_pretrained'
-    print(load)
-    if not load:
-        torch.save(embedder.state_dict(), path/"embedder.pt")
-        torch.save(recovery.state_dict(), path/"recovery.pt")
-
+    #print(load)
+    #if not load:
+    #    torch.save(embedder.state_dict(), path/"embedder.pt")
+    #    torch.save(recovery.state_dict(), path/"recovery.pt")
+    torch.save(embedder.state_dict(), path/"embedder.pt")
+    torch.save(recovery.state_dict(), path/"recovery.pt")
     embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device(device)))
     recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
 
@@ -1172,7 +1173,7 @@ def main():
         )
         # visualize(dataset, device, generated_data,args)
     else:
-        path = 'stock_model/stock_0.7'
+        path = here / 'dumarey_model/dumarey_pretrained'
         generator.load_state_dict(torch.load(path+"/generator.pt", map_location=torch.device(device)))
         recovery.load_state_dict(torch.load(path+"/recovery.pt", map_location=torch.device(device)))
 
