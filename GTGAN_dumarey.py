@@ -779,7 +779,7 @@ def train(
         
     print("Finish Embedding Network Training")
     
-    path = here / 'stock_model/stock_pretrained_0.7'
+    path = here / 'dumarey_model/dumarey_pretrained'
     print(load)
     if not load:
         torch.save(embedder.state_dict(), path/"embedder.pt")
