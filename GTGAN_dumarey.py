@@ -1175,8 +1175,8 @@ def main():
         # visualize(dataset, device, generated_data,args)
     else:
         path = here / 'dumarey_model/dumarey_pretrained'
-        generator.load_state_dict(torch.load(path+"/generator.pt", map_location=torch.device(device)))
-        recovery.load_state_dict(torch.load(path+"/recovery.pt", map_location=torch.device(device)))
+        generator.load_state_dict(torch.load(path / "generator.pt", map_location=torch.device(device)))
+        recovery.load_state_dict(torch.load(path / "recovery.pt", map_location=torch.device(device)))
 
         batch = dataset[args.batch_size]
         x = batch['data'].to(device)
