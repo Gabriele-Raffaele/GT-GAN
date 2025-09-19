@@ -785,8 +785,8 @@ def train(
         torch.save(embedder.state_dict(), path/"embedder.pt")
         torch.save(recovery.state_dict(), path/"recovery.pt")
 
-    embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device('cpu')))
-    recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device('cpu')))
+    embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device(device)))
+    recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
 
     print("Start Joint Training")
     for step in range(1, max_steps+1):
@@ -1173,9 +1173,9 @@ def main():
         # visualize(dataset, device, generated_data,args)
     else:
         path = 'stock_model/stock_0.7'
-        generator.load_state_dict(torch.load(path+"/generator.pt"))
-        recovery.load_state_dict(torch.load(path+"/recovery.pt"))
-    
+        generator.load_state_dict(torch.load(path+"/generator.pt", map_location=torch.device(device)))
+        recovery.load_state_dict(torch.load(path+"/recovery.pt", map_location=torch.device(device)))
+
         batch = dataset[args.batch_size]
         x = batch['data'].to(device)
         seq_len = x.shape[1]
