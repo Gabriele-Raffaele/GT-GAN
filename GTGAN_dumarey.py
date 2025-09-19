@@ -1056,7 +1056,7 @@ def main():
     parser.add_argument("--gamma", type=float, default=1.0)
     parser.add_argument("--save-model", action="store_true", default=True)
     parser.add_argument("--train", action="store_true")
-    parser.add_argument("--save_dir", type=str, default='test')
+    parser.add_argument("--save_dir", type=str, default='dumarey_model/dumarey_pretrained')
     parser.add_argument("--d_layer", type=int, default=1)
     parser.add_argument("--r_layer", type=int, default=2)
     parser.add_argument("--last_activation_r", type=str, default='tanh')
