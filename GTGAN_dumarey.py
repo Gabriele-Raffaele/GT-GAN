@@ -784,6 +784,7 @@ def train(
     #if not load:
     #    torch.save(embedder.state_dict(), path/"embedder.pt")
     #    torch.save(recovery.state_dict(), path/"recovery.pt")
+    os.makedirs(path, exist_ok=True)
     torch.save(embedder.state_dict(), path/"embedder.pt")
     torch.save(recovery.state_dict(), path/"recovery.pt")
     embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device(device)))
