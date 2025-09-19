@@ -785,8 +785,8 @@ def train(
         torch.save(embedder.state_dict(), path/"embedder.pt")
         torch.save(recovery.state_dict(), path/"recovery.pt")
 
-    embedder.load_state_dict(torch.load(path/"embedder.pt"))
-    recovery.load_state_dict(torch.load(path/"recovery.pt"))
+    embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device('cpu')))
+    recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device('cpu')))
 
     print("Start Joint Training")
     for step in range(1, max_steps+1):
