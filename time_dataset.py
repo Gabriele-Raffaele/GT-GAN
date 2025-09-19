@@ -316,6 +316,9 @@ class TimeDataset(torch.utils.data.Dataset):
         # import pdb;pdb.set_trace()
         base_loc = here / 'datasets'
         loc = here / 'datasets'/(data_name+str(missing_rate))
+        data = np.loadtxt(data_path, delimiter=",", skiprows=1)
+        total_length = len(data)
+        data = data[::-1]
         if os.path.exists(loc):
             tensors = load_data(loc)
             self.train_coeffs = tensors['train_a'], tensors['train_b'], tensors['train_c'], tensors['train_d']
@@ -324,6 +327,8 @@ class TimeDataset(torch.utils.data.Dataset):
             self.original_sample = np.array(self.original_sample)
             self.samples = np.array(self.samples)
             self.size = len(self.samples)
+            self.original_min = np.min(data,0)
+            self.original_max = np.max(data,0)
         else:
             if not os.path.exists(base_loc):
                 os.mkdir(base_loc)    
