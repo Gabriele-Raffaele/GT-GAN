@@ -964,6 +964,7 @@ def train(
                 ###########################################
                 x_hat = recovery(h_hat, obs)
                 x = original_x
+            
                 
             '''
             generated_data_curr = x.cpu().numpy()
@@ -1004,7 +1005,10 @@ def train(
             # visualize(dataset, device, generated_data,args)
             '''
     print("Finish Joint Training")
-
+    torch.save(embedder.state_dict(), path / "embedder.pt")
+    torch.save(recovery.state_dict(), path / "recovery.pt")
+    torch.save(generator.state_dict(), path / "generator.pt")
+    torch.save(discriminator.state_dict(), path / "discriminator.pt")
     #return generated_data_curr
 
 
