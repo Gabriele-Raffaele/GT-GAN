@@ -362,7 +362,7 @@ class RecoveryODENetwork(torch.nn.Module):
     def forward(self, H, times):
         HH = self.x_model(H)
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size).to(device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
@@ -431,7 +431,7 @@ class First_ODENetwork(torch.nn.Module):
     def forward(self, H, times):
         HH = self.x_model(H)
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size).to(device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
@@ -500,7 +500,7 @@ class Mid_ODENetwork(torch.nn.Module):
         # HH = self.x_model(H)
         HH = H
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size).to(device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
@@ -578,7 +578,7 @@ class Last_ODENetwork(torch.nn.Module):
         # HH = self.x_model(H)
         HH = H
         out = torch.zeros_like(HH)
-        h = torch.zeros(HH.shape[0], self.hidden_size).to('cuda')
+        h = torch.zeros(HH.shape[0], self.hidden_size).to(device)
         current_time = times[0, 0] - 1
         final_time = times[0, -1]
         for idx, obs_time in enumerate(times[0]):
