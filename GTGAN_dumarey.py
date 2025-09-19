@@ -1061,7 +1061,7 @@ def main():
     parser.add_argument("--last_activation_d", type=str, default='identity')
     parser.add_argument("--first_epoch", type=int, default=10000)
     parser.add_argument("--log_time", type=int, default=1)
-    parser.add_argument("--missing_value",type=float,default=0.7)
+    parser.add_argument("--missing_value",type=float,default=0.0)
     here = pathlib.Path(__file__).resolve().parent
     args = parser.parse_args()
     args.effective_shape = args.input_size
@@ -1075,11 +1075,11 @@ def main():
         input_size = 6
     elif args.data == 'dumarey':
         data_path = here / 'datasets/dumarey_data.csv'
-        dataset = TimeDataset_regular(data_path, args.seq_len)
+        dataset = TimeDataset(data_path, args.seq_len, args.data, args.missing_value)
         input_size = 6
     elif args.data == 'energy':
         data_path = here / 'datasets/energy_data.csv'
-        dataset = TimeDataset_regular(data_path, args.seq_len)
+        dataset = TimeDataset(data_path, args.seq_len, args.data, args.missing_value)
         input_size = 28
     hidden_size = 24
     num_layers = 3
