@@ -1175,8 +1175,6 @@ def main():
     print(pytorch_total_params)
 
     if args.train == True:
-        print("Dataset dimensions: ", dataset.data.shape)
-
         #generated_data = 
         train(
             args,
