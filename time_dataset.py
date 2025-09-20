@@ -346,9 +346,10 @@ class TimeDataset(torch.utils.data.Dataset):
             for i in range(len(norm_data) - seq_len + 1):
                 x = norm_data[i : i + seq_len].copy()
                 ori_seq_data.append(x)
-            idx = torch.randperm(len(ori_seq_data))
+            #idx = torch.randperm(len(ori_seq_data))
             for i in range(len(ori_seq_data)):
-                self.original_sample.append(ori_seq_data[idx[i]])
+                #self.original_sample.append(ori_seq_data[idx[i]])
+                self.original_sample.append(ori_seq_data[i])
             self.X_mean = np.mean(np.array(self.original_sample),axis=0).reshape(1,np.array(self.original_sample).shape[1],np.array(self.original_sample).shape[2])
             generator = torch.Generator().manual_seed(56789)
             removed_points = torch.randperm(norm_data.shape[0], generator=generator)[:int(norm_data.shape[0] * missing_rate)].sort().values
@@ -362,8 +363,9 @@ class TimeDataset(torch.utils.data.Dataset):
                 seq_data.append(x)
             self.samples = []
             for i in range(len(seq_data)):
-                self.samples.append(seq_data[idx[i]])
-            
+                #self.samples.append(seq_data[idx[i]])
+                self.samples.append(seq_data[i])
+
             self.samples = np.array(self.samples)
             
             norm_data_tensor = torch.Tensor(self.samples[:,:,:-1]).float().to(device)
@@ -387,15 +389,13 @@ class TimeDataset(torch.utils.data.Dataset):
 
         # save_data()
 
-    def __getitem__(self, batch_size):
-        # import pdb;pdb.set_trace()
+    def __getitem__(self, start_idx, batch_size):
         dataset_size = len(self.samples)
-        idx = torch.randperm(dataset_size)
-        batch_idx = idx[:batch_size]
+        end_idx = min(start_idx + batch_size, dataset_size)
+        batch_idx = torch.arange(start_idx, end_idx)
         original_batch = torch.stack([to_tensor(self.original_sample[i]) for i in batch_idx])
         batch = torch.stack([to_tensor(self.samples[i]) for i in batch_idx])
 
-        # batch _idx -> batch 만큼 가져고 
         a, b, c, d = self.train_coeffs
         batch_a = torch.stack([a[i] for i in batch_idx])
         batch_b = torch.stack([b[i] for i in batch_idx])
@@ -403,13 +403,13 @@ class TimeDataset(torch.utils.data.Dataset):
         batch_d = torch.stack([d[i] for i in batch_idx])
 
         batch_coeff = (batch_a, batch_b, batch_c, batch_d)
-        
         self.sample = {'data': batch , 'inter': batch_coeff, 'original_data':original_batch}
-
-        return self.sample # self.samples[index]
+        return self.sample
 
     def __len__(self):
         return len(self.samples)
+   
+        
 
 class TimeDataset_j(torch.utils.data.Dataset):
     def __init__(self, data_path, seq_len):
@@ -585,26 +585,20 @@ class TimeDataset_irregular(torch.utils.data.Dataset):
 
         # save_data()
 
-    def __getitem__(self, batch_size):
-        # import pdb;pdb.set_trace()
+    def __getitem__(self, start_idx, batch_size):
         dataset_size = len(self.samples)
-        idx = torch.randperm(dataset_size)
-        batch_idx = idx[:batch_size]
+        end_idx = min(start_idx + batch_size, dataset_size)
+        batch_idx = torch.arange(start_idx, end_idx)
         original_batch = torch.stack([to_tensor(self.original_sample[i]) for i in batch_idx])
         batch = torch.stack([to_tensor(self.samples[i]) for i in batch_idx])
-
-        # batch _idx -> batch 만큼 가져고 
         a, b, c, d = self.train_coeffs
         batch_a = torch.stack([a[i] for i in batch_idx])
         batch_b = torch.stack([b[i] for i in batch_idx])
         batch_c = torch.stack([c[i] for i in batch_idx])
         batch_d = torch.stack([d[i] for i in batch_idx])
-
         batch_coeff = (batch_a, batch_b, batch_c, batch_d)
-        
         self.sample = {'data': batch , 'inter': batch_coeff, 'original_data':original_batch}
-
-        return self.sample # self.samples[index]
+        return self.sample
 
     def __len__(self):
         return len(self.samples)

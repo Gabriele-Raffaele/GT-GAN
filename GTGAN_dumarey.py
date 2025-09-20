@@ -740,43 +740,47 @@ def train(
     #    load = True
     print(recovery)
     print(discriminator)
-
+    # Number of epochs for embedding network training
+    num_epochs_embedder = args.first_epoch
+    num_batches_per_epoch = len(dataset) // batch_size
     print("Start Embedding Network Training")
-    for step in range(1, args.first_epoch + 1):
-        batch = dataset[batch_size]
-        x = batch['data'].to(device)
-        train_coeffs = batch['inter']#.to(device)
-        original_x = batch['original_data'].to(device)
-        obs = x[:, :, -1]
-        x = x[:, :, :-1]
-        #final_index = obs[:,-1]
-        time = torch.FloatTensor(list(range(24))).to(device)
-        final_index = (torch.ones(batch_size) * 23).to(device)
-        #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
-        ###########################################
-        h = embedder(time, train_coeffs, final_index)
-        #h = embedder(x)
-        ###########################################
-        x_tilde = recovery(h, obs)
+    for epoch in range(num_epochs_embedder):
+        for batch_idx in range(num_batches_per_epoch):
+            start_idx = batch_idx * batch_size
+            batch = dataset[start_idx, batch_size]
+            x = batch['data'].to(device)
+            train_coeffs = batch['inter']#.to(device)
+            original_x = batch['original_data'].to(device)
+            obs = x[:, :, -1]
+            x = x[:, :, :-1]
+            #final_index = obs[:,-1]
+            time = torch.FloatTensor(list(range(24))).to(device)
+            final_index = (torch.ones(batch_size) * 23).to(device)
+            #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
+            ###########################################
+            h = embedder(time, train_coeffs, final_index)
+            #h = embedder(x)
+            ###########################################
+            x_tilde = recovery(h, obs)
 
-        x_no_nan = x[~torch.isnan(x)]
-        x_tilde_no_nan = x_tilde[~torch.isnan(x)]
+            x_no_nan = x[~torch.isnan(x)]
+            x_tilde_no_nan = x_tilde[~torch.isnan(x)]
 
-        loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
-        loss_e_0 = _loss_e_0(loss_e_t0)
-        optimizer_er.zero_grad()
-        loss_e_0.backward()
-        optimizer_er.step()
-        torch.cuda.empty_cache()
+            loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
+            loss_e_0 = _loss_e_0(loss_e_t0)
+            optimizer_er.zero_grad()
+            loss_e_0.backward()
+            optimizer_er.step()
+            torch.cuda.empty_cache()
         print(
             "step: "
-            + str(step)
+            + str(epoch)
             + "/"
             + str(args.first_epoch)
             + ", loss_e: "
             + str(np.round(np.sqrt(loss_e_t0.item()), 4))
         )
-        
+            
     print("Finish Embedding Network Training")
     
     path = here / 'dumarey_model/dumarey_pretrained'
@@ -791,179 +795,182 @@ def train(
     recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
 
     print("Start Joint Training")
+    num_batches_per_epoch = len(dataset) // batch_size
     for step in range(1, max_steps+1):
-        for _ in range(2):
-            generator.train()
-            supervisor.train()
-            recovery.train()
-            batch = dataset[batch_size]
+        for batch_idx in range(num_batches_per_epoch):
+            start_idx = batch_idx * batch_size
+            for _ in range(2):
+                generator.train()
+                supervisor.train()
+                recovery.train()
+                batch = dataset[start_idx, batch_size]
+                x = batch['data'].to(device)
+                train_coeffs = batch['inter']#.to(device)
+                original_x = batch['original_data'].to(device)
+                obs = x[:, :, -1]
+                x = x[:, :, :-1]
+                z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
+
+                time = torch.FloatTensor(list(range(24))).to(device)
+                final_index = (torch.ones(batch_size) * 23).to(device)
+                #############Generator#####################
+                h = embedder(time, train_coeffs, final_index)
+                times = time
+                times = times.unsqueeze(0)
+                times = times.unsqueeze(2)
+                times = times.repeat(obs.shape[0], 1, 1)
+
+                h_hat = run_model(args, generator, z, times, device, z=True)
+                ##############################################
+                x_real = recovery(h, obs)
+                x_fake = recovery(h_hat, obs)
+
+                y_fake = discriminator(x_fake, obs)
+                y_real = discriminator(x_real, obs)
+                loss_d = _loss_d2(y_real, y_fake)
+
+                if loss_d.item() > 0.15:
+                    optimizer_d.zero_grad()
+                    loss_d.backward()
+                    optimizer_d.step()
+                    torch.cuda.empty_cache()
+
+                #############Recovery######################
+                h = embedder(time, train_coeffs, final_index)
+                #loss_s, _ = run_model(args, generator, h, times, z = False)
+                x_tilde = recovery(h, obs)
+
+                x_no_nan = x[~torch.isnan(x)]
+                x_tilde_no_nan = x_tilde[~torch.isnan(x)]
+                
+                loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
+
+                loss_e_0 = _loss_e_0(loss_e_t0)
+                loss_e = loss_e_0
+                optimizer_er.zero_grad()
+                loss_e.backward()
+                optimizer_er.step()
+                torch.cuda.empty_cache()
+            if step % args.log_time == 0:
+                batch = dataset[batch_size]
+                x = batch['data'].to(device)
+                train_coeffs = batch['inter']#.to(device)
+                original_x = batch['original_data'].to(device)
+                obs = x[:, :, -1]
+                x = x[:, :, :-1]
+                time = torch.FloatTensor(list(range(24))).to(device)
+                final_index = (torch.ones(batch_size) * 23).to(device)
+                h = embedder(time, train_coeffs, final_index)
+                times = time
+                times = times.unsqueeze(0)
+                times = times.unsqueeze(2)
+                times = times.repeat(obs.shape[0], 1, 1)
+                #################################################
+                if args.kinetic_energy == None:
+                    loss_s, loss = run_model(
+                        args, generator, h, times, device, z=False)
+                    optimizer_gs.zero_grad()
+                    loss_s.backward()
+                else:
+                    loss_s, loss, reg_state = run_model(
+                        args, generator, h, times, device, z=False)
+                    optimizer_gs.zero_grad()
+                    (loss_s+reg_state).backward()
+                optimizer_gs.step()
+
+            batch = dataset[start_idx, batch_size]
             x = batch['data'].to(device)
             train_coeffs = batch['inter']#.to(device)
             original_x = batch['original_data'].to(device)
             obs = x[:, :, -1]
             x = x[:, :, :-1]
             z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
-
             time = torch.FloatTensor(list(range(24))).to(device)
             final_index = (torch.ones(batch_size) * 23).to(device)
-            #############Generator#####################
             h = embedder(time, train_coeffs, final_index)
-            times = time
-            times = times.unsqueeze(0)
+            times = time.unsqueeze(0)
             times = times.unsqueeze(2)
             times = times.repeat(obs.shape[0], 1, 1)
-
             h_hat = run_model(args, generator, z, times, device, z=True)
-            ##############################################
-            x_real = recovery(h, obs)
-            x_fake = recovery(h_hat, obs)
 
-            y_fake = discriminator(x_fake, obs)
-            y_real = discriminator(x_real, obs)
-            loss_d = _loss_d2(y_real, y_fake)
-
-            if loss_d.item() > 0.15:
-                optimizer_d.zero_grad()
-                loss_d.backward()
-                optimizer_d.step()
-                torch.cuda.empty_cache()
-
-            #############Recovery######################
-            h = embedder(time, train_coeffs, final_index)
-            #loss_s, _ = run_model(args, generator, h, times, z = False)
-            x_tilde = recovery(h, obs)
+            x_hat = recovery(h_hat, obs)
+            y_fake = discriminator(x_hat, obs)
+            loss_g_u = _loss_g_u(y_fake)
 
             x_no_nan = x[~torch.isnan(x)]
-            x_tilde_no_nan = x_tilde[~torch.isnan(x)]
-            
-            loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
+            x_tilde_no_nan = x_hat[~torch.isnan(x)]
 
-            loss_e_0 = _loss_e_0(loss_e_t0)
-            loss_e = loss_e_0
-            optimizer_er.zero_grad()
-            loss_e.backward()
-            optimizer_er.step()
-            torch.cuda.empty_cache()
-        if step % args.log_time == 0:
-            batch = dataset[batch_size]
-            x = batch['data'].to(device)
-            train_coeffs = batch['inter']#.to(device)
-            original_x = batch['original_data'].to(device)
-            obs = x[:, :, -1]
-            x = x[:, :, :-1]
-            time = torch.FloatTensor(list(range(24))).to(device)
-            final_index = (torch.ones(batch_size) * 23).to(device)
-            h = embedder(time, train_coeffs, final_index)
-            times = time
-            times = times.unsqueeze(0)
-            times = times.unsqueeze(2)
-            times = times.repeat(obs.shape[0], 1, 1)
-            #################################################
-            if args.kinetic_energy == None:
-                loss_s, loss = run_model(
-                    args, generator, h, times, device, z=False)
-                optimizer_gs.zero_grad()
-                loss_s.backward()
-            else:
-                loss_s, loss, reg_state = run_model(
-                    args, generator, h, times, device, z=False)
-                optimizer_gs.zero_grad()
-                (loss_s+reg_state).backward()
+            loss_g_v = _loss_g_v(x_tilde_no_nan, x_no_nan)
+
+            loss_g = _loss_g3(loss_g_u, loss_g_v)
+            optimizer_gs.zero_grad()
+            loss_g.backward()
             optimizer_gs.step()
+            if step > 1000:
+                print(
+                    "step: "
+                    + str(step)
+                    + "/"
+                    + str(max_steps)
+                    + ", loss_d: "
+                    + str(np.round(loss_d.item(), 4))
+                    + ", loss_g_u: "
+                    + str(np.round(loss_g_u.item(), 4))
+                    + ", loss_g_v: "
+                    + str(np.round(loss_g_v.item(), 4))
+                    + ", loss_s: "
+                    + str(np.round(loss_s.item(), 4))
+                    + ", loss_e_t0: "
+                    + str(np.round(np.sqrt(loss_e_t0.item()), 4))
+                )
 
-        batch = dataset[batch_size]
-        x = batch['data'].to(device)
-        train_coeffs = batch['inter']#.to(device)
-        original_x = batch['original_data'].to(device)
-        obs = x[:, :, -1]
-        x = x[:, :, :-1]
-        z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
-        time = torch.FloatTensor(list(range(24))).to(device)
-        final_index = (torch.ones(batch_size) * 23).to(device)
-        h = embedder(time, train_coeffs, final_index)
-        times = time.unsqueeze(0)
-        times = times.unsqueeze(2)
-        times = times.repeat(obs.shape[0], 1, 1)
-        h_hat = run_model(args, generator, z, times, device, z=True)
+            if step % 10 == 0:
+                ##############################################
+                # Print discriminative and predictive scores
+                # print(metric_results)
+                ####################################
+                path = args.save_dir
+                # os.makedirs(path,exist_ok=True)
+                torch.save(embedder.state_dict(), path /
+                        "embedder{}.pt".format(str(step)))
+                torch.save(recovery.state_dict(), path /
+                        "recovery{}.pt".format(str(step)))
+                torch.save(generator.state_dict(), path /
+                        "generator{}.pt".format(str(step)))
+                torch.save(discriminator.state_dict(), path /
+                        "discriminator{}.pt".format(str(step)))
 
-        x_hat = recovery(h_hat, obs)
-        y_fake = discriminator(x_hat, obs)
-        loss_g_u = _loss_g_u(y_fake)
+                seq_len = x.shape[1]
+                input_size = x.shape[2] - 1
+                dataset_size = dataset.size
 
-        x_no_nan = x[~torch.isnan(x)]
-        x_tilde_no_nan = x_hat[~torch.isnan(x)]
+                with torch.no_grad():
+                    batch = dataset[dataset_size]
+                    x = batch['data'].to(device)
+                    train_coeffs = batch['inter']#.to(device)
+                    original_x = batch['original_data'].to(device)
+                    obs = x[:, :, -1]
+                    x = x[:, :, :-1]
+                    z = torch.randn(dataset_size, x.size(
+                        1), args.effective_shape).to(device)
+                    time = torch.FloatTensor(list(range(24))).to(device)
 
-        loss_g_v = _loss_g_v(x_tilde_no_nan, x_no_nan)
+                    final_index = (torch.ones(dataset_size) * 23).to(device)
 
-        loss_g = _loss_g3(loss_g_u, loss_g_v)
-        optimizer_gs.zero_grad()
-        loss_g.backward()
-        optimizer_gs.step()
-        if step > 1000:
-            print(
-                "step: "
-                + str(step)
-                + "/"
-                + str(max_steps)
-                + ", loss_d: "
-                + str(np.round(loss_d.item(), 4))
-                + ", loss_g_u: "
-                + str(np.round(loss_g_u.item(), 4))
-                + ", loss_g_v: "
-                + str(np.round(loss_g_v.item(), 4))
-                + ", loss_s: "
-                + str(np.round(loss_s.item(), 4))
-                + ", loss_e_t0: "
-                + str(np.round(np.sqrt(loss_e_t0.item()), 4))
-            )
-
-        if step % 10 == 0:
-            ##############################################
-            # Print discriminative and predictive scores
-            # print(metric_results)
-            ####################################
-            path = args.save_dir
-            # os.makedirs(path,exist_ok=True)
-            torch.save(embedder.state_dict(), path /
-                       "embedder{}.pt".format(str(step)))
-            torch.save(recovery.state_dict(), path /
-                       "recovery{}.pt".format(str(step)))
-            torch.save(generator.state_dict(), path /
-                       "generator{}.pt".format(str(step)))
-            torch.save(discriminator.state_dict(), path /
-                       "discriminator{}.pt".format(str(step)))
-
-            seq_len = x.shape[1]
-            input_size = x.shape[2] - 1
-            dataset_size = dataset.size
-
-            with torch.no_grad():
-                batch = dataset[dataset_size]
-                x = batch['data'].to(device)
-                train_coeffs = batch['inter']#.to(device)
-                original_x = batch['original_data'].to(device)
-                obs = x[:, :, -1]
-                x = x[:, :, :-1]
-                z = torch.randn(dataset_size, x.size(
-                    1), args.effective_shape).to(device)
-                time = torch.FloatTensor(list(range(24))).to(device)
-
-                final_index = (torch.ones(dataset_size) * 23).to(device)
-
-                ###########################################
-                h = embedder(time, train_coeffs, final_index)
-                times = time
-                times = times.unsqueeze(0)
-                times = times.unsqueeze(2)
-                times = times.repeat(obs.shape[0], 1, 1)
-                # z = torch.randn(dataset_size, seq_len, 24).to(device)
-                #obs = torch.tensor([[1.,2.,3.,4.,5.,6.,7.,8.,9.,10.,11.,12.,13.,14.,15.,16.,17.,18.,19.,20.,21.,22.,23.,24] for _ in range(size)])
-                ###########################################
-                # e_hat = generator(z,device)
-                h_hat = run_model(args, generator, z, times, device, z=True)
-                ###########################################
-                x_hat = recovery(h_hat, obs)
-                x = original_x
+                    ###########################################
+                    h = embedder(time, train_coeffs, final_index)
+                    times = time
+                    times = times.unsqueeze(0)
+                    times = times.unsqueeze(2)
+                    times = times.repeat(obs.shape[0], 1, 1)
+                    # z = torch.randn(dataset_size, seq_len, 24).to(device)
+                    #obs = torch.tensor([[1.,2.,3.,4.,5.,6.,7.,8.,9.,10.,11.,12.,13.,14.,15.,16.,17.,18.,19.,20.,21.,22.,23.,24] for _ in range(size)])
+                    ###########################################
+                    # e_hat = generator(z,device)
+                    h_hat = run_model(args, generator, z, times, device, z=True)
+                    ###########################################
+                    x_hat = recovery(h_hat, obs)
+                    x = original_x
             
                 
             '''
