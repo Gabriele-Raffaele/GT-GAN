@@ -1126,7 +1126,7 @@ def main():
         generator.load_state_dict(torch.load(path / "generator.pt", map_location=torch.device(device)))
         recovery.load_state_dict(torch.load(path / "recovery.pt", map_location=torch.device(device)))
 
-        batch = dataset[args.batch_size]
+        batch = dataset[(0, len(dataset))]
         x = batch['data'].to(device)
         seq_len = x.shape[1]
         input_size = x.shape[2] - 1

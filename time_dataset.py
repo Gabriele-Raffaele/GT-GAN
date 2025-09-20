@@ -407,8 +407,7 @@ class TimeDataset(torch.utils.data.Dataset):
         batch_d = torch.stack([d[i] for i in batch_idx])
 
         batch_coeff = (batch_a, batch_b, batch_c, batch_d)
-        self.sample = {'data': batch , 'inter': batch_coeff, 'original_data':original_batch}
-        return self.sample
+        return {'data': batch , 'inter': batch_coeff, 'original_data':original_batch}
 
     def __len__(self):
         return len(self.samples)
