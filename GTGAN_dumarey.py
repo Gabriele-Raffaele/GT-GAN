@@ -747,7 +747,8 @@ def train(
     for epoch in range(num_epochs_embedder):
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
-            batch = dataset[start_idx, batch_size]
+            idx = (start_idx, batch_size)
+            batch = dataset[idx]
             x = batch['data'].to(device)
             train_coeffs = batch['inter']#.to(device)
             original_x = batch['original_data'].to(device)
@@ -803,7 +804,8 @@ def train(
                 generator.train()
                 supervisor.train()
                 recovery.train()
-                batch = dataset[start_idx, batch_size]
+                idx = (start_idx, batch_size)
+                batch = dataset[idx]
                 x = batch['data'].to(device)
                 train_coeffs = batch['inter']#.to(device)
                 original_x = batch['original_data'].to(device)

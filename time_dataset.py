@@ -389,9 +389,13 @@ class TimeDataset(torch.utils.data.Dataset):
 
         # save_data()
 
-    def __getitem__(self, start_idx, batch_size):
-        dataset_size = len(self.samples)
-        end_idx = min(start_idx + batch_size, dataset_size)
+    def __getitem__(self, idx):
+        if isinstance(idx, tuple):
+            start_idx, batch_size = idx
+        else:
+            start_idx = idx
+            batch_size = 1
+        end_idx = min(start_idx + batch_size, len(self.data))
         batch_idx = torch.arange(start_idx, end_idx)
         original_batch = torch.stack([to_tensor(self.original_sample[i]) for i in batch_idx])
         batch = torch.stack([to_tensor(self.samples[i]) for i in batch_idx])
