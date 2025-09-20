@@ -3,7 +3,8 @@ import pandas as pd
 import pathlib
 
 # Percorso del file .npy generato
-npy_file = "/Users/gabriele/Desktop/Magistrale/Tesi/env/GT-GAN/generated_data_dumarey.npy"
+npy_file = "GT-GAN/dumarey_model/dumarey_pretrained/generated_data_dumarey.npy"
+originale_dataset = "GT-GAN/datasets/dumarey.csv"
 csv_file = pathlib.Path(npy_file).with_suffix(".csv")
 
 # Carica i dati
@@ -12,13 +13,19 @@ print(f"Shape del dataset: {data.shape}")  # (num_sequences, seq_len, num_featur
 
 num_sequences, seq_len, num_features = data.shape
 
+# Carica il dataset originale per ottenere i nomi delle colonne
+df_original = pd.read_csv(originale_dataset)
+column_names = list(df_original.columns)
+# Rimuovi colonne extra come 'sequence_id' e 'time_step' se presenti
+column_names = [col for col in column_names if col not in ['sequence_id', 'time_step']]
+
 # Creazione di una lista di dizionari per costruire il DataFrame
 rows = []
 for seq_id in range(num_sequences):
     for t in range(seq_len):
         row = {"sequence_id": seq_id, "time_step": t}
         for f in range(num_features):
-            row[f"feature_{f+1}"] = data[seq_id, t, f]
+            row[column_names[f]] = data[seq_id, t, f]
         rows.append(row)
 
 # Creazione DataFrame e salvataggio in CSV
