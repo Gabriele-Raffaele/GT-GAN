@@ -18,6 +18,7 @@ df_original = pd.read_csv(originale_dataset)
 column_names = list(df_original.columns)
 # Rimuovi colonne extra come 'sequence_id' e 'time_step' se presenti
 column_names = [col for col in column_names if col not in ['sequence_id', 'time_step']]
+feature_columns = [col for col in column_names if col not in ['sequence_id', 'time_step']]
 
 # Creazione di una lista di dizionari per costruire il DataFrame
 rows = []
@@ -25,11 +26,11 @@ for seq_id in range(num_sequences):
     for t in range(seq_len):
         row = {"sequence_id": seq_id, "time_step": t}
         for f in range(num_features):
-            row[column_names[f]] = data[seq_id, t, f]
+            row[feature_columns[f]] = data[seq_id, t, f]
         rows.append(row)
 
 # Creazione DataFrame e salvataggio in CSV
 df = pd.DataFrame(rows)
-df = df[["sequence_id", "time_step"] + column_names]
+df = df[["sequence_id", "time_step"] + feature_columns]
 df.to_csv(csv_file, index=False)
 print(f"CSV salvato in {csv_file}")
