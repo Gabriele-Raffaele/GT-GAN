@@ -32,6 +32,7 @@ from itertools import chain
 import numpy as np
 import torch
 import tensorflow as tf
+import math
 random_seed = 7777
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
@@ -742,7 +743,9 @@ def train(
     print(discriminator)
     # Number of epochs for embedding network training
     num_epochs_embedder = args.first_epoch
-    num_batches_per_epoch = len(dataset) // batch_size
+    num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
+    print("Number of batches per epoch:", num_batches_per_epoch)
+    print("Dataset length:", len(dataset))
     print("Start Embedding Network Training")
     for epoch in range(num_epochs_embedder):
         for batch_idx in range(num_batches_per_epoch):
@@ -783,6 +786,7 @@ def train(
         )
             
     print("Finish Embedding Network Training")
+
     
     path = here / 'dumarey_model/dumarey_pretrained'
     #print(load)
@@ -796,7 +800,7 @@ def train(
     recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
 
     print("Start Joint Training")
-    num_batches_per_epoch = len(dataset) // batch_size
+    num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
     for step in range(1, max_steps+1):
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
