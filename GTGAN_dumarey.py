@@ -1133,15 +1133,16 @@ def main():
         dataset_size = dataset.size
 
         with torch.no_grad():
-            batch = dataset[dataset_size]
+            batch = dataset[(0, len(dataset))]
             x = batch['data'].to(device)
             train_coeffs = batch['inter']#.to(device)
             original_x = batch['original_data'].to(device)
             obs = x[:, :, -1]
             x = x[:, :, :-1]
-            z = torch.randn(dataset_size, x.size(1), args.effective_shape).to(device)
+            current_batch_size = x.size(0)
+            z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
             time = torch.FloatTensor(list(range(24))).to(device)
-            final_index = (torch.ones(dataset_size) * 23).to(device)
+            final_index = (torch.ones(current_batch_size) * 23).to(device)
             ###########################################
             times = time
             times = times.unsqueeze(0)
