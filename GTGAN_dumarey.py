@@ -859,7 +859,8 @@ def train(
                 optimizer_er.step()
                 torch.cuda.empty_cache()
             if step % args.log_time == 0:
-                batch = dataset[batch_size]
+                idx = (start_idx, batch_size)
+                batch = dataset[idx]
                 x = batch['data'].to(device)
                 train_coeffs = batch['inter']#.to(device)
                 original_x = batch['original_data'].to(device)
@@ -884,8 +885,8 @@ def train(
                     optimizer_gs.zero_grad()
                     (loss_s+reg_state).backward()
                 optimizer_gs.step()
-
-            batch = dataset[start_idx, batch_size]
+            idx = (start_idx, batch_size)
+            batch = dataset[idx]
             x = batch['data'].to(device)
             train_coeffs = batch['inter']#.to(device)
             original_x = batch['original_data'].to(device)
@@ -948,77 +949,6 @@ def train(
                 torch.save(discriminator.state_dict(), path /
                         "discriminator{}.pt".format(str(step)))
 
-                seq_len = x.shape[1]
-                input_size = x.shape[2] - 1
-                dataset_size = dataset.size
-
-                with torch.no_grad():
-                    batch = dataset[dataset_size]
-                    x = batch['data'].to(device)
-                    train_coeffs = batch['inter']#.to(device)
-                    original_x = batch['original_data'].to(device)
-                    obs = x[:, :, -1]
-                    x = x[:, :, :-1]
-                    z = torch.randn(dataset_size, x.size(
-                        1), args.effective_shape).to(device)
-                    time = torch.FloatTensor(list(range(24))).to(device)
-
-                    final_index = (torch.ones(dataset_size) * 23).to(device)
-
-                    ###########################################
-                    h = embedder(time, train_coeffs, final_index)
-                    times = time
-                    times = times.unsqueeze(0)
-                    times = times.unsqueeze(2)
-                    times = times.repeat(obs.shape[0], 1, 1)
-                    # z = torch.randn(dataset_size, seq_len, 24).to(device)
-                    #obs = torch.tensor([[1.,2.,3.,4.,5.,6.,7.,8.,9.,10.,11.,12.,13.,14.,15.,16.,17.,18.,19.,20.,21.,22.,23.,24] for _ in range(size)])
-                    ###########################################
-                    # e_hat = generator(z,device)
-                    h_hat = run_model(args, generator, z, times, device, z=True)
-                    ###########################################
-                    x_hat = recovery(h_hat, obs)
-                    x = original_x
-            
-                
-            '''
-            generated_data_curr = x.cpu().numpy()
-            generated_data1 = list()
-            for i in range(dataset_size):
-                temp = generated_data_curr[i, :, :]
-                generated_data1.append(temp)
-
-            generated_data_curr = x_hat.cpu().numpy()
-            generated_data2 = list()
-            for i in range(dataset_size):
-                temp = generated_data_curr[i, :, :]
-                generated_data2.append(temp)
-            name = 'third'+str(step)
-            visualization(generated_data1, generated_data2,
-                          "tsne", args)
-
-            metric_results = dict()
-            tf.compat.v1.disable_eager_execution()
-            discriminative_score = list()
-            for _ in range(args.max_steps_metric):
-                temp_disc = discriminative_score_metrics(
-                    generated_data1, generated_data2)
-                discriminative_score.append(temp_disc)
-
-            metric_results['discriminative'] = np.mean(discriminative_score)
-            metric_results['discriminative_std'] = np.std(discriminative_score)
-
-            predictive_score = list()
-            for tt in range(args.max_steps_metric):
-                temp_pred = predictive_score_metrics(
-                    generated_data1, generated_data2)
-                predictive_score.append(temp_pred)
-
-            metric_results['predictive'] = np.mean(predictive_score)
-            metric_results['predictive_std'] = np.std(predictive_score)
-            print(metric_results)
-            # visualize(dataset, device, generated_data,args)
-            '''
     print("Finish Joint Training")
     torch.save(embedder.state_dict(), path / "embedder.pt")
     torch.save(recovery.state_dict(), path / "recovery.pt")
