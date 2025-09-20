@@ -30,5 +30,6 @@ for seq_id in range(num_sequences):
 
 # Creazione DataFrame e salvataggio in CSV
 df = pd.DataFrame(rows)
+df = df[["sequence_id", "time_step"] + column_names]
 df.to_csv(csv_file, index=False)
 print(f"CSV salvato in {csv_file}")
