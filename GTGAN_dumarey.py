@@ -891,9 +891,10 @@ def train(
             original_x = batch['original_data'].to(device)
             obs = x[:, :, -1]
             x = x[:, :, :-1]
-            z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
+            current_batch_size = x.size(0)
+            z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
             time = torch.FloatTensor(list(range(24))).to(device)
-            final_index = (torch.ones(batch_size) * 23).to(device)
+            final_index = (torch.ones(current_batch_size) * 23).to(device)
             h = embedder(time, train_coeffs, final_index)
             times = time.unsqueeze(0)
             times = times.unsqueeze(2)
