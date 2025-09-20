@@ -815,10 +815,11 @@ def train(
                 original_x = batch['original_data'].to(device)
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
-                z = torch.randn(batch_size, x.size(1), args.effective_shape).to(device)
+                current_batch_size = x.size(0)
+                z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
 
                 time = torch.FloatTensor(list(range(24))).to(device)
-                final_index = (torch.ones(batch_size) * 23).to(device)
+                final_index = (torch.ones(current_batch_size) * 23).to(device)
                 #############Generator#####################
                 h = embedder(time, train_coeffs, final_index)
                 times = time
@@ -1087,7 +1088,6 @@ def main():
     # args.aug_mapping = True
     device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
     print(device)
-    #TODO: is it bettere to use TimeDataset instead of TimeDataset_regular /irregular?
     if args.data == 'stock':
         data_path = here / 'datasets/stock_data.csv'
         dataset = TimeDataset_irregular(data_path, args.seq_len,args.data,args.missing_value)
@@ -1175,6 +1175,8 @@ def main():
     print(pytorch_total_params)
 
     if args.train == True:
+        print("Dataset dimensions: ", dataset.data.shape)
+
         #generated_data = 
         train(
             args,
