@@ -781,26 +781,26 @@ def train(
             final_index = (torch.ones(batch_size) * 23).to(device)
             #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
             ###########################################
+            #h= embedder(time, train_coeffs, final_index)
 
-            #h = embedder(time, train_coeffs, final_index)
+            # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
+            current_batch_size = x.size(0)
+            if h_prev is not None and h_prev.size(0) != current_batch_size:
+                h_prev = h_prev[:current_batch_size, :]
+
             # Passaggio dello stato tra finestre consecutive nell'embedding
-            
             if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
                 h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
             else:
                 h = embedder(time, train_coeffs, final_index)
-            # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+
+            # Aggiorna h_prev con lo stato finale della finestra
             if isinstance(h, torch.Tensor) and h.ndim == 3:
                 h_prev = h[:, -1, :].detach()
             elif isinstance(h, torch.Tensor) and h.ndim == 2:
                 h_prev = h.detach()
             else:
                 h_prev = None
-
-            # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
-            current_batch_size = x.size(0)
-            if h_prev is not None and current_batch_size != h_prev.size(0):
-                h_prev = h_prev[:current_batch_size, :]
             ###########################################
             x_tilde = recovery(h, obs)
 
@@ -859,23 +859,24 @@ def train(
                 time = torch.FloatTensor(list(range(24))).to(device)
                 final_index = (torch.ones(current_batch_size) * 23).to(device)
                 #############Generator#####################
+                # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
+                current_batch_size = x.size(0)
+                if h_prev is not None and h_prev.size(0) != current_batch_size:
+                    h_prev = h_prev[:current_batch_size, :]
+
                 # Passaggio dello stato tra finestre consecutive nell'embedding
                 if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
                     h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
                 else:
                     h = embedder(time, train_coeffs, final_index)
-                # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+
+                # Aggiorna h_prev con lo stato finale della finestra
                 if isinstance(h, torch.Tensor) and h.ndim == 3:
                     h_prev = h[:, -1, :].detach()
                 elif isinstance(h, torch.Tensor) and h.ndim == 2:
                     h_prev = h.detach()
                 else:
                     h_prev = None
-
-                # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
-                current_batch_size = x.size(0)
-                if h_prev is not None and current_batch_size != h_prev.size(0):
-                    h_prev = h_prev[:current_batch_size, :]
                 #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
@@ -898,24 +899,24 @@ def train(
                     torch.cuda.empty_cache()
 
                 #############Recovery######################
-                #h = embedder(time, train_coeffs, final_index)
+                # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
+                current_batch_size = x.size(0)
+                if h_prev is not None and h_prev.size(0) != current_batch_size:
+                    h_prev = h_prev[:current_batch_size, :]
+
                 # Passaggio dello stato tra finestre consecutive nell'embedding
                 if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
                     h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
                 else:
                     h = embedder(time, train_coeffs, final_index)
-                # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+
+                # Aggiorna h_prev con lo stato finale della finestra
                 if isinstance(h, torch.Tensor) and h.ndim == 3:
                     h_prev = h[:, -1, :].detach()
                 elif isinstance(h, torch.Tensor) and h.ndim == 2:
                     h_prev = h.detach()
                 else:
                     h_prev = None
-
-                # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
-                current_batch_size = x.size(0)
-                if h_prev is not None and current_batch_size != h_prev.size(0):
-                    h_prev = h_prev[:current_batch_size, :]
                 #loss_s, _ = run_model(args, generator, h, times, z = False)
                 x_tilde = recovery(h, obs)
 
@@ -940,23 +941,24 @@ def train(
                 x = x[:, :, :-1]
                 time = torch.FloatTensor(list(range(24))).to(device)
                 final_index = (torch.ones(batch_size) * 23).to(device)
+                # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
+                current_batch_size = x.size(0)
+                if h_prev is not None and h_prev.size(0) != current_batch_size:
+                    h_prev = h_prev[:current_batch_size, :]
+
                 # Passaggio dello stato tra finestre consecutive nell'embedding
                 if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
                     h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
                 else:
                     h = embedder(time, train_coeffs, final_index)
-                # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+
+                # Aggiorna h_prev con lo stato finale della finestra
                 if isinstance(h, torch.Tensor) and h.ndim == 3:
                     h_prev = h[:, -1, :].detach()
                 elif isinstance(h, torch.Tensor) and h.ndim == 2:
                     h_prev = h.detach()
                 else:
                     h_prev = None
-
-                # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
-                current_batch_size = x.size(0)
-                if h_prev is not None and current_batch_size != h_prev.size(0):
-                    h_prev = h_prev[:current_batch_size, :]
                 #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
