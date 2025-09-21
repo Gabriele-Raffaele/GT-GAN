@@ -788,7 +788,13 @@ def train(
                 h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
             else:
                 h = embedder(time, train_coeffs, final_index)
-            h_prev = h.detach()  # Aggiorna lo stato per la prossima finestra/batch
+            # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+            if isinstance(h, torch.Tensor) and h.ndim == 3:
+                h_prev = h[:, -1, :].detach()
+            elif isinstance(h, torch.Tensor) and h.ndim == 2:
+                h_prev = h.detach()
+            else:
+                h_prev = None
             #h = embedder(x)
             ###########################################
             x_tilde = recovery(h, obs)
@@ -853,7 +859,13 @@ def train(
                     h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
                 else:
                     h = embedder(time, train_coeffs, final_index)
-                h_prev = h.detach()  # Aggiorna lo stato per la prossima finestra/batch
+                # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+                if isinstance(h, torch.Tensor) and h.ndim == 3:
+                    h_prev = h[:, -1, :].detach()
+                elif isinstance(h, torch.Tensor) and h.ndim == 2:
+                    h_prev = h.detach()
+                else:
+                    h_prev = None
                 #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
@@ -882,7 +894,13 @@ def train(
                     h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
                 else:
                     h = embedder(time, train_coeffs, final_index)
-                h_prev = h.detach()
+                # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+                if isinstance(h, torch.Tensor) and h.ndim == 3:
+                    h_prev = h[:, -1, :].detach()
+                elif isinstance(h, torch.Tensor) and h.ndim == 2:
+                    h_prev = h.detach()
+                else:
+                    h_prev = None
                 #loss_s, _ = run_model(args, generator, h, times, z = False)
                 x_tilde = recovery(h, obs)
 
@@ -912,7 +930,13 @@ def train(
                     h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
                 else:
                     h = embedder(time, train_coeffs, final_index)
-                h_prev = h.detach()
+                # Ora si passa solo lo stato finale della finestra come h_prev per il batch successivo
+                if isinstance(h, torch.Tensor) and h.ndim == 3:
+                    h_prev = h[:, -1, :].detach()
+                elif isinstance(h, torch.Tensor) and h.ndim == 2:
+                    h_prev = h.detach()
+                else:
+                    h_prev = None
                 #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
