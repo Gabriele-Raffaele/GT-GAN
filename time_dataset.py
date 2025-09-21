@@ -16,11 +16,21 @@ import controldiffeq
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def normalize(data):
-    numerator = data - np.min(data, 0)
-    denominator = np.max(data, 0) - np.min(data, 0)
-    # numerator = data-np.min(data)
-    # denominator = np.max(data) - np.min(data)
-    norm_data = numerator / (denominator + 1e-7)
+   
+    is_one_hot = np.all((data == 0) | (data == 1), axis=0)
+
+    numeric_data = data[:, ~is_one_hot]
+    one_hot_data = data[:, is_one_hot]
+
+    numerator = numeric_data - np.min(numeric_data, 0)
+    denominator = np.max(numeric_data, 0) - np.min(numeric_data, 0)
+    norm_numeric_data = numerator / (denominator + 1e-7)
+
+    
+    norm_data = np.empty_like(data, dtype=float)
+    norm_data[:, ~is_one_hot] = norm_numeric_data
+    norm_data[:, is_one_hot] = one_hot_data
+
     return norm_data
 
 
