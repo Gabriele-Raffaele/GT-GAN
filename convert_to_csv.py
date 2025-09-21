@@ -3,8 +3,8 @@ import pandas as pd
 import pathlib
 
 # Percorso del file .npy generato
-npy_file = "GT-GAN/dumarey_model/dumarey_pretrained/generated_data_dumarey.npy"
-originale_dataset = "GT-GAN/datasets/dumarey.csv"
+npy_file = "./dumarey_model/dumarey_pretrained/generated_data_dumarey.npy"
+originale_dataset = "./datasets/dumarey.csv"
 csv_file = pathlib.Path(npy_file).with_suffix(".csv")
 
 # Carica i dati
