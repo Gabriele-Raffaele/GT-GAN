@@ -28,7 +28,7 @@ from torch.optim import optimizer
 from torch.nn import functional as F
 from torch import nn, optim
 from itertools import chain
-
+import tqdm
 import numpy as np
 import torch
 import tensorflow as tf
@@ -765,7 +765,7 @@ def train(
     print("Number of batches per epoch:", num_batches_per_epoch)
     print("Dataset length:", len(dataset))
     print("Start Embedding Network Training")
-    for epoch in range(num_epochs_embedder):
+    for epoch in tqdm(range(num_epochs_embedder), desc="Embedding Network Training"):
         h_prev = None
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
@@ -838,7 +838,7 @@ def train(
 
     print("Start Joint Training")
     num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
-    for step in range(1, max_steps+1):
+    for step in tqdm(range(1, max_steps+1), desc="Joint Training"):
         h_prev = None
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
@@ -1024,7 +1024,7 @@ def train(
                     + str(np.round(np.sqrt(loss_e_t0.item()), 4))
                 )
 
-            if step % 10 == 0:
+            if step % 500 == 0:
                 ##############################################
                 # Print discriminative and predictive scores
                 # print(metric_results)
