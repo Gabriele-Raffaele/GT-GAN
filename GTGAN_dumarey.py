@@ -764,7 +764,7 @@ def train(
     print("Number of batches per epoch:", num_batches_per_epoch)
     print("Dataset length:", len(dataset))
     print("Start Embedding Network Training")
-    for epoch in tqdm(range(num_epochs_embedder), desc="Embedding Network Training"):
+    for epoch in tqdm(range(num_epochs_embedder)):
         h_prev = None
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
@@ -837,7 +837,7 @@ def train(
 
     print("Start Joint Training")
     num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
-    for step in tqdm(range(1, max_steps+1), desc="Joint Training"):
+    for step in tqdm(range(1, max_steps+1)):
         h_prev = None
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
