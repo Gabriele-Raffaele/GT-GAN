@@ -28,7 +28,6 @@ from torch.optim import optimizer
 from torch.nn import functional as F
 from torch import nn, optim
 from itertools import chain
-import tqdm
 import numpy as np
 import torch
 import tensorflow as tf
