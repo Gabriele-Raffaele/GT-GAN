@@ -797,12 +797,10 @@ def train(
             else:
                 h_prev = None
 
-            # Se il batch corrente è più piccolo del batch precedente, aggiungi padding a h_prev
+            # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
             current_batch_size = x.size(0)
-            if h_prev is not None and current_batch_size < h_prev.size(0):
-                pad_size = h_prev.size(0) - current_batch_size
-                pad = torch.zeros(pad_size, h_prev.size(1), device=h_prev.device)
-                h_prev = torch.cat([h_prev[:current_batch_size, :], pad], dim=0)
+            if h_prev is not None and current_batch_size != h_prev.size(0):
+                h_prev = h_prev[:current_batch_size, :]
             ###########################################
             x_tilde = recovery(h, obs)
 
@@ -873,12 +871,11 @@ def train(
                     h_prev = h.detach()
                 else:
                     h_prev = None
-                # Se il batch corrente è più piccolo del batch precedente, aggiungi padding a h_prev
+
+                # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
                 current_batch_size = x.size(0)
-                if h_prev is not None and current_batch_size < h_prev.size(0):
-                    pad_size = h_prev.size(0) - current_batch_size
-                    pad = torch.zeros(pad_size, h_prev.size(1), device=h_prev.device)
-                    h_prev = torch.cat([h_prev[:current_batch_size, :], pad], dim=0)
+                if h_prev is not None and current_batch_size != h_prev.size(0):
+                    h_prev = h_prev[:current_batch_size, :]
                 #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
@@ -914,12 +911,11 @@ def train(
                     h_prev = h.detach()
                 else:
                     h_prev = None
-                # Se il batch corrente è più piccolo del batch precedente, aggiungi padding a h_prev
+
+                # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
                 current_batch_size = x.size(0)
-                if h_prev is not None and current_batch_size < h_prev.size(0):
-                    pad_size = h_prev.size(0) - current_batch_size
-                    pad = torch.zeros(pad_size, h_prev.size(1), device=h_prev.device)
-                    h_prev = torch.cat([h_prev[:current_batch_size, :], pad], dim=0)
+                if h_prev is not None and current_batch_size != h_prev.size(0):
+                    h_prev = h_prev[:current_batch_size, :]
                 #loss_s, _ = run_model(args, generator, h, times, z = False)
                 x_tilde = recovery(h, obs)
 
@@ -956,12 +952,11 @@ def train(
                     h_prev = h.detach()
                 else:
                     h_prev = None
-                # Se il batch corrente è più piccolo del batch precedente, aggiungi padding a h_prev
+
+                # Se la dimensione corrente è diversa dalla dimensione precedente, taglia h_prev
                 current_batch_size = x.size(0)
-                if h_prev is not None and current_batch_size < h_prev.size(0):
-                    pad_size = h_prev.size(0) - current_batch_size
-                    pad = torch.zeros(pad_size, h_prev.size(1), device=h_prev.device)
-                    h_prev = torch.cat([h_prev[:current_batch_size, :], pad], dim=0)
+                if h_prev is not None and current_batch_size != h_prev.size(0):
+                    h_prev = h_prev[:current_batch_size, :]
                 #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
