@@ -199,7 +199,7 @@ class NeuralCDE(torch.nn.Module):
                "".format(self.input_channels, self.hidden_channels,
                          self.output_channels, self.initial)
 
-    def forward(self, times, coeffs, final_index, z0=None, stream=True, **kwargs):
+    def forward(self, times, coeffs, final_index, z0=None, stream=True, h_prev=None, **kwargs):
         """
         Arguments:
             times: The times of the observations for the input path X, e.g. as passed as an argument to
@@ -228,7 +228,10 @@ class NeuralCDE(torch.nn.Module):
 
         cubic_spline = controldiffeq.NaturalCubicSpline(times, coeffs)
 
-        if z0 is None:
+        # Now possible to pass h_prev externally as the initial hidden state between consecutive windows
+        if h_prev is not None:
+            z0 = h_prev
+        elif z0 is None:
             assert self.initial, "Was not expecting to be given no value of z0."
             if isinstance(self.func, ContinuousRNNConverter):  # still an ugly hack
                 z0 = torch.zeros(*batch_dims, self.hidden_channels,
@@ -242,6 +245,21 @@ class NeuralCDE(torch.nn.Module):
                 z0_extra = torch.zeros(
                     *batch_dims, self.input_channels, dtype=z0.dtype, device=z0.device)
                 z0 = torch.cat([z0_extra, z0], dim=-1)
+        '''
+        if z0 is None:
+            assert self.initial, "Was not expecting to be given no value of z0."
+            if isinstance(self.func, ContinuousRNNConverter):  # still an ugly hack
+                z0 = torch.zeros(*batch_dims, self.hidden_channels,
+                                 dtype=coeff.dtype, device=coeff.device)
+            else:
+                z0 = self.initial_network(cubic_spline.evaluate(times[0]))
+        else:
+            assert not self.initial, "Was expecting to be given a value of z0."
+            # continuing adventures in ugly hacks
+            if isinstance(self.func, ContinuousRNNConverter):
+                z0_extra = torch.zeros(
+                    *batch_dims, self.input_channels, dtype=z0.dtype, device=z0.device)
+                z0 = torch.cat([z0_extra, z0], dim=-1)'''
         # Figure out what times we need to solve for
 
         if stream:
@@ -748,6 +766,7 @@ def train(
     print("Dataset length:", len(dataset))
     print("Start Embedding Network Training")
     for epoch in range(num_epochs_embedder):
+        h_prev = None
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
             idx = (start_idx, batch_size)
@@ -762,7 +781,14 @@ def train(
             final_index = (torch.ones(batch_size) * 23).to(device)
             #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
             ###########################################
-            h = embedder(time, train_coeffs, final_index)
+
+            #h = embedder(time, train_coeffs, final_index)
+            # Passaggio dello stato tra finestre consecutive nell'embedding
+            if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
+                h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
+            else:
+                h = embedder(time, train_coeffs, final_index)
+            h_prev = h.detach()  # Aggiorna lo stato per la prossima finestra/batch
             #h = embedder(x)
             ###########################################
             x_tilde = recovery(h, obs)
@@ -802,6 +828,7 @@ def train(
     print("Start Joint Training")
     num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
     for step in range(1, max_steps+1):
+        h_prev = None
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
             for _ in range(2):
@@ -821,7 +848,13 @@ def train(
                 time = torch.FloatTensor(list(range(24))).to(device)
                 final_index = (torch.ones(current_batch_size) * 23).to(device)
                 #############Generator#####################
-                h = embedder(time, train_coeffs, final_index)
+                # Passaggio dello stato tra finestre consecutive nell'embedding
+                if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
+                    h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
+                else:
+                    h = embedder(time, train_coeffs, final_index)
+                h_prev = h.detach()  # Aggiorna lo stato per la prossima finestra/batch
+                #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
                 times = times.unsqueeze(2)
@@ -843,7 +876,13 @@ def train(
                     torch.cuda.empty_cache()
 
                 #############Recovery######################
-                h = embedder(time, train_coeffs, final_index)
+                #h = embedder(time, train_coeffs, final_index)
+                # Passaggio dello stato tra finestre consecutive nell'embedding
+                if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
+                    h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
+                else:
+                    h = embedder(time, train_coeffs, final_index)
+                h_prev = h.detach()
                 #loss_s, _ = run_model(args, generator, h, times, z = False)
                 x_tilde = recovery(h, obs)
 
@@ -868,7 +907,13 @@ def train(
                 x = x[:, :, :-1]
                 time = torch.FloatTensor(list(range(24))).to(device)
                 final_index = (torch.ones(batch_size) * 23).to(device)
-                h = embedder(time, train_coeffs, final_index)
+                # Passaggio dello stato tra finestre consecutive nell'embedding
+                if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
+                    h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
+                else:
+                    h = embedder(time, train_coeffs, final_index)
+                h_prev = h.detach()
+                #h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
                 times = times.unsqueeze(2)

@@ -351,9 +351,9 @@ class TimeDataset(torch.utils.data.Dataset):
                 #self.original_sample.append(ori_seq_data[idx[i]])
                 self.original_sample.append(ori_seq_data[i])
             self.X_mean = np.mean(np.array(self.original_sample),axis=0).reshape(1,np.array(self.original_sample).shape[1],np.array(self.original_sample).shape[2])
-            generator = torch.Generator().manual_seed(56789)
-            removed_points = torch.randperm(norm_data.shape[0], generator=generator)[:int(norm_data.shape[0] * missing_rate)].sort().values
-            norm_data[removed_points] = float('nan')
+            #generator = torch.Generator().manual_seed(56789)
+            #removed_points = torch.randperm(norm_data.shape[0], generator=generator)[:int(norm_data.shape[0] * missing_rate)].sort().values
+            #norm_data[removed_points] = float('nan')
             total_length = len(norm_data)
             index = np.array(range(total_length)).reshape(-1,1)
             norm_data = np.concatenate((norm_data,index),axis=1)#맨 뒤에 관측시간에 대한 정보 저장
