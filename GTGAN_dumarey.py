@@ -813,7 +813,7 @@ def train(
             optimizer_er.step()
             torch.cuda.empty_cache()
         
-        '''if epoch % 500  == 0:
+        if epoch % 500  == 0:
             print(
                 "step: "
                 + str(epoch)
@@ -821,7 +821,7 @@ def train(
                 + str(args.first_epoch)
                 + ", loss_e: "
                 + str(np.round(np.sqrt(loss_e_t0.item()), 4))
-            )'''
+            )
             
     print("Finish Embedding Network Training")
 
