@@ -1091,7 +1091,7 @@ def main():
     parser.add_argument("--model1", type=str, default='gtgan')
     parser.add_argument("--model2", type=str, default='add_discriminator')
     parser.add_argument("--seq-len", type=int, default=24)
-    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--batch-size", type=int, default=24)
     parser.add_argument("--max-steps", type=int, default=10000)
     parser.add_argument("--max-steps-metric", type=int, default=10)
     parser.add_argument("--gamma", type=float, default=1.0)
