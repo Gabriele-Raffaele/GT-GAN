@@ -32,6 +32,7 @@ import numpy as np
 import torch
 import tensorflow as tf
 import math
+from typing import Dict, List, Tuple, Optional
 random_seed = 7777
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
@@ -671,13 +672,190 @@ class Multi_Layer_ODENetwork(torch.nn.Module):
                 out = model(out, times)
         return out
 
-# Gumbel-Softmax sampling function
-def gumbel_softmax_sample(logits, tau=1.0, eps=1e-20):
-    """Sample from the Gumbel-Softmax distribution"""
-    U = torch.rand_like(logits)
-    g = -torch.log(-torch.log(U + eps) + eps)
-    y = logits + g
-    return F.softmax(y / tau, dim=-1)
+
+
+
+def gumbel_sample(shape, eps=1e-8, device=device):
+    """Sample from Gumbel(0, 1) distribution - implementazione corretta"""
+    U = torch.rand(shape, device=device)
+    return -torch.log(-torch.log(U + eps) + eps)
+
+class GumbelSoftmax(nn.Module):
+    """Implementazione robusta della Gumbel-Softmax"""
+    
+    def __init__(self, temperature=1.0, hard=False):
+        super(GumbelSoftmax, self).__init__()
+        self.temperature = temperature
+        self.hard = hard
+    
+    def forward(self, logits, temperature=None, hard=None):
+        """
+        Args:
+            logits: [..., num_categories] unnormalized log probabilities
+            temperature: temperature parameter (overrides self.temperature if provided)
+            hard: whether to use hard sampling (overrides self.hard if provided)
+        """
+        temp = temperature if temperature is not None else self.temperature
+        use_hard = hard if hard is not None else self.hard
+        
+        # Sample from Gumbel distribution
+        gumbel_noise = gumbel_sample(logits.shape, device=logits.device)
+        
+        # Apply Gumbel-Softmax
+        y = F.softmax((logits + gumbel_noise) / temp, dim=-1)
+        
+        if use_hard:
+            # Straight-through estimator
+            y_hard = torch.zeros_like(y)
+            y_hard.scatter_(-1, y.argmax(dim=-1, keepdim=True), 1.0)
+            y = (y_hard - y).detach() + y
+        
+        return y
+
+class TemperatureScheduler:
+    """Scheduler per temperatura Gumbel-Softmax con diverse strategie"""
+    
+    def __init__(self, initial_temp=5.0, final_temp=0.1, strategy='exponential', total_steps=10000):
+        self.initial_temp = initial_temp
+        self.final_temp = final_temp
+        self.strategy = strategy
+        self.total_steps = total_steps
+    
+    def get_temperature(self, step):
+        """Calcola temperatura per il passo corrente"""
+        progress = min(step / self.total_steps, 1.0)
+        
+        if self.strategy == 'linear':
+            temp = self.initial_temp - (self.initial_temp - self.final_temp) * progress
+        elif self.strategy == 'exponential':
+            temp = self.initial_temp * (self.final_temp / self.initial_temp) ** progress
+        elif self.strategy == 'cosine':
+            temp = self.final_temp + 0.5 * (self.initial_temp - self.final_temp) * (1 + math.cos(math.pi * progress))
+        else:
+            temp = self.initial_temp  # constant
+        
+        return max(temp, self.final_temp)
+
+# ===================== FEATURE CONFIG =====================
+
+class FeatureConfig:
+    """Config per gestire feature continue e discrete (one-hot)"""
+    def __init__(self):
+        # Prime 10 colonne continue
+        self.continuous_indices = list(range(10))
+        # Ultime 5 colonne discrete one-hot (qui assumiamo 5 categorie per ciascuna)
+        self.discrete_features = {i: {'num_categories': 1, 'categories': [f'cat{i}']} for i in range(10, 15)}
+
+        self.continuous_dim = len(self.continuous_indices)
+        self.discrete_dim = sum(spec['num_categories'] for spec in self.discrete_features.values())
+        self.total_dim = self.continuous_dim + self.discrete_dim
+
+        # Mapping start index delle discrete
+        self.discrete_start_indices = {}
+        current_start = self.continuous_dim
+        for feat_idx in sorted(self.discrete_features.keys()):
+            self.discrete_start_indices[feat_idx] = current_start
+            current_start += self.discrete_features[feat_idx]['num_categories']
+
+    def split_features(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[int, torch.Tensor]]:
+        """Separa continuous e discrete"""
+        continuous_data = x[..., :self.continuous_dim] if self.continuous_dim > 0 else None
+        discrete_data = {}
+        for feat_idx, spec in self.discrete_features.items():
+            start_idx = self.discrete_start_indices[feat_idx]
+            end_idx = start_idx + spec['num_categories']
+            discrete_data[feat_idx] = x[..., start_idx:end_idx]
+        return continuous_data, discrete_data
+
+    def combine_features(self, continuous: torch.Tensor, discrete: Dict[int, torch.Tensor]) -> torch.Tensor:
+        """Ricombina continuous e discrete"""
+        features = []
+        if continuous is not None and self.continuous_dim > 0:
+            features.append(continuous)
+        for feat_idx in sorted(self.discrete_features.keys()):
+            if feat_idx in discrete:
+                features.append(discrete[feat_idx])
+        return torch.cat(features, dim=-1)
+
+# ===================== MIXED TYPE LOSS =====================
+
+class MixedTypeLoss:
+    """Loss robusta per dati misti: continua usa _loss_e_t0, discrete usa cross-entropy/KL"""
+    def __init__(self, feature_config: FeatureConfig, continuous_loss_fn=None, discrete_weight=1.0):
+        self.feature_config = feature_config
+        # Funzione loss continua (default _loss_e_t0)
+        self.continuous_loss_fn = continuous_loss_fn
+        self.discrete_weight = discrete_weight
+
+    def reconstruction_loss(self, x_recon: torch.Tensor, x_true: torch.Tensor) -> torch.Tensor:
+        continuous_recon, discrete_recon = self.feature_config.split_features(x_recon)
+        continuous_true, discrete_true = self.feature_config.split_features(x_true)
+        total_loss = torch.tensor(0.0, device=x_recon.device)
+
+        # --- CONTINUE ---
+        if continuous_recon is not None and continuous_true is not None:
+            if self.continuous_loss_fn is not None:
+                cont_loss = self.continuous_loss_fn(continuous_recon, continuous_true)
+            else:
+                cont_loss = F.mse_loss(continuous_recon, continuous_true)
+            total_loss += cont_loss
+
+        # --- DISCRETE ---
+        if discrete_recon and discrete_true:
+            discrete_loss = torch.tensor(0.0, device=x_recon.device)
+            num_discrete_features = 0
+            for feat_idx in discrete_recon.keys():
+                if feat_idx in discrete_true:
+                    recon_logits = discrete_recon[feat_idx].view(-1, discrete_recon[feat_idx].size(-1))
+                    true_probs = discrete_true[feat_idx].view(-1, discrete_true[feat_idx].size(-1))
+                    # Se one-hot → cross-entropy
+                    if torch.allclose(true_probs.sum(dim=-1), torch.ones(true_probs.size(0), device=true_probs.device)):
+                        true_indices = true_probs.argmax(dim=-1)
+                        feat_loss = F.cross_entropy(recon_logits, true_indices, reduction='mean')
+                    else:
+                        # Se probabilità soft → KL divergence
+                        feat_loss = F.kl_div(F.log_softmax(recon_logits, dim=-1), true_probs, reduction='batchmean')
+                    discrete_loss += feat_loss
+                    num_discrete_features += 1
+            if num_discrete_features > 0:
+                discrete_loss = discrete_loss / num_discrete_features
+                total_loss += self.discrete_weight * discrete_loss
+
+        return total_loss
+
+# ============ PREPROCESSING MIGLIORATO ============
+
+class DataPreprocessor:
+    """Preprocessor per gestire correttamente i dati prima della Gumbel-Softmax"""
+    
+    def __init__(self, feature_config: FeatureConfig, gumbel_softmax: GumbelSoftmax):
+        self.feature_config = feature_config
+        self.gumbel_softmax = gumbel_softmax
+    
+    def preprocess_for_training(self, x: torch.Tensor, temperature: float) -> torch.Tensor:
+        """Preprocessa i dati per il training applicando Gumbel-Softmax alle feature discrete"""
+        continuous_data, discrete_data = self.feature_config.split_features(x)
+        
+        # Applica Gumbel-Softmax solo alle feature discrete
+        processed_discrete = {}
+        for feat_idx, data in discrete_data.items():
+            # Verifica se i dati sono già in formato logits o probabilità
+            if torch.allclose(data.sum(dim=-1), torch.ones(data.shape[:-1], device=data.device)):
+                # È one-hot o probabilità, converti in logits
+                logits = torch.log(data + 1e-8)  # Evita log(0)
+            else:
+                # Assumi che siano già logits
+                logits = data
+            
+            # Applica Gumbel-Softmax
+            processed_discrete[feat_idx] = self.gumbel_softmax(logits, temperature=temperature)
+        
+        # Ricombina
+        return self.feature_config.combine_features(continuous_data, processed_discrete)
+
+
+
+
 
 def train(
     args,
@@ -766,6 +944,20 @@ def train(
     optimizer_er = optim.Adam(chain(embedder.parameters(), recovery.parameters()))
     optimizer_gs = optim.Adam(generator.parameters())
     optimizer_d = optim.Adam(discriminator.parameters())
+    # KL-divergence regularization for categorical features
+    lambda_kl = 0.1
+    eps = 1e-8
+    # Inizializza componenti Gumbel-Softmax
+    feature_config = FeatureConfig()
+    gumbel_softmax = GumbelSoftmax(temperature=1.0, hard=False)
+    temp_scheduler = TemperatureScheduler(
+        initial_temp=5.0, 
+        final_temp=0.1, 
+        strategy='exponential', 
+        total_steps=max_steps
+    )
+    data_preprocessor = DataPreprocessor(feature_config, gumbel_softmax)
+    mixed_loss = MixedTypeLoss(feature_config, continuous_loss_fn=_loss_e_t0)
 
     embedder.train()
     generator.train()
@@ -801,12 +993,9 @@ def train(
             obs = x[:, :, -1]
             x = x[:, :, :-1]
             ### Gumbel-Softmax preprocessing for last 5 features ###
-            num_cat_features = 5
-            temperature = max(0.5, 1.0 * (0.5 ** (epoch / max_steps)))  # annealing
-            x_cont = x[:, :, :-num_cat_features]
-            x_cat_logits = x[:, :, -num_cat_features:]
-            x_cat_gumbel = gumbel_softmax_sample(x_cat_logits, tau=temperature)
-            x = torch.cat([x_cont, x_cat_gumbel], dim=-1)
+            # Applica preprocessing con temperatura corrente
+            current_temp = temp_scheduler.get_temperature(epoch)
+            x_processed = data_preprocessor.preprocess_for_training(x, current_temp)
             #######################################################
             #final_index = obs[:,-1]
             time = torch.FloatTensor(list(range(24))).to(device)
@@ -844,7 +1033,7 @@ def train(
             loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
             '''
             # Use custom loss for continuous + categorical features
-            loss_e_t0 = custom_loss(x_tilde, x, num_cat_features=5)
+            loss_e_t0 = mixed_loss.reconstruction_loss(x_tilde, x_processed)
             loss_e_0 = _loss_e_0(loss_e_t0)
             optimizer_er.zero_grad()
             loss_e_0.backward()
@@ -893,12 +1082,7 @@ def train(
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
                 ###Gumbel-Softmax preprocessing for last 5 features###
-                num_cat_features = 5
-                temperature = max(0.5, 1.0 * (0.5 ** (step / max_steps)))  # annealing
-                x_cont = x[:, :, :-num_cat_features]
-                x_cat_logits = x[:, :, -num_cat_features:]
-                x_cat_gumbel = gumbel_softmax_sample(x_cat_logits, tau=temperature)
-                x = torch.cat([x_cont, x_cat_gumbel], dim=-1)
+                x_processed = data_preprocessor.preprocess_for_training(x, current_temp)
                 #####################################################
                 current_batch_size = x.size(0)
                 z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
@@ -978,7 +1162,7 @@ def train(
                 loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
                 '''
                 # Use custom loss for continuous + categorical features
-                loss_e_t0 = custom_loss(x_tilde, x, num_cat_features=5)
+                loss_e_t0 = mixed_loss.reconstruction_loss(x_tilde, x_processed)
                 loss_e_0 = _loss_e_0(loss_e_t0)
                 loss_e = loss_e_0
                 optimizer_er.zero_grad()
@@ -994,12 +1178,7 @@ def train(
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
                 ### Gumbel-Softmax preprocessing for last 5 features ###
-                num_cat_features = 5
-                temperature = max(0.5, 1.0 * (0.5 ** (step / max_steps)))  # annealing
-                x_cont = x[:, :, :-num_cat_features]
-                x_cat_logits = x[:, :, -num_cat_features:]
-                x_cat_gumbel = gumbel_softmax_sample(x_cat_logits, tau=temperature)
-                x = torch.cat([x_cont, x_cat_gumbel], dim=-1)
+                x_processed = data_preprocessor.preprocess_for_training(x, current_temp)
                 #######################################################
                 time = torch.FloatTensor(list(range(24))).to(device)
                 final_index = (torch.ones(batch_size) * 23).to(device)
@@ -1050,12 +1229,7 @@ def train(
             obs = x[:, :, -1]
             x = x[:, :, :-1]
             ### Gumbel-Softmax preprocessing for last 5 features ###
-            num_cat_features = 5
-            temperature = max(0.5, 1.0 * (0.5 ** (step / max_steps)))  # annealing
-            x_cont = x[:, :, :-num_cat_features]
-            x_cat_logits = x[:, :, -num_cat_features:]
-            x_cat_gumbel = gumbel_softmax_sample(x_cat_logits, tau=temperature)
-            x = torch.cat([x_cont, x_cat_gumbel], dim=-1)
+            x_processed = data_preprocessor.preprocess_for_training(x, current_temp)
             #######################################################
             current_batch_size = x.size(0)
             z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
@@ -1076,8 +1250,15 @@ def train(
             loss_g_v = _loss_g_v(x_tilde_no_nan, x_no_nan)
             '''
             # Use custom loss for continuous + categorical features
-            loss_g_v = custom_loss(x_hat, x, num_cat_features=5)
+            loss_g_v = mixed_loss.reconstruction_loss(x_hat, x_processed)
             loss_g = _loss_g3(loss_g_u, loss_g_v)
+            # KL-divergence sulle feature categoriche (ultime 5)
+            '''with torch.no_grad():
+                p_empirical = torch.mean(original_x[:, :, -5:], dim=(0, 1))  # distribuzione reale
+            q_generated = torch.softmax(x_hat[:, :, -5:], dim=-1).mean(dim=(0, 1))  # distribuzione generata
+            loss_kl = torch.sum(p_empirical * torch.log((p_empirical + eps) / (q_generated + eps)))
+            loss_g = loss_g + lambda_kl * loss_kl'''
+
             optimizer_gs.zero_grad()
             loss_g.backward()
             optimizer_gs.step()
