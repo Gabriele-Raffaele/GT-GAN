@@ -780,10 +780,11 @@ def train(
             final_index = (torch.ones(batch_size) * 23).to(device)
             #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
             ###########################################
-            #h= embedder(time, train_coeffs, final_index)
+            h= embedder(time, train_coeffs, final_index)
 
             # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
             current_batch_size = x.size(0)
+            '''
             if h_prev is not None and h_prev.size(0) != current_batch_size:
                 h_prev = h_prev[:current_batch_size, :]
 
@@ -800,6 +801,7 @@ def train(
                 h_prev = h.detach()
             else:
                 h_prev = None
+            '''
             ###########################################
             x_tilde = recovery(h, obs)
 
@@ -862,6 +864,7 @@ def train(
                 #############Generator#####################
                 # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
                 current_batch_size = x.size(0)
+                '''
                 if h_prev is not None and h_prev.size(0) != current_batch_size:
                     h_prev = h_prev[:current_batch_size, :]
 
@@ -878,7 +881,8 @@ def train(
                     h_prev = h.detach()
                 else:
                     h_prev = None
-                #h = embedder(time, train_coeffs, final_index)
+                '''
+                h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
                 times = times.unsqueeze(2)
@@ -902,6 +906,7 @@ def train(
                 #############Recovery######################
                 # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
                 current_batch_size = x.size(0)
+                '''
                 if h_prev is not None and h_prev.size(0) != current_batch_size:
                     h_prev = h_prev[:current_batch_size, :]
 
@@ -918,6 +923,8 @@ def train(
                     h_prev = h.detach()
                 else:
                     h_prev = None
+                '''
+                h = embedder(time, train_coeffs, final_index)
                 #loss_s, _ = run_model(args, generator, h, times, z = False)
                 x_tilde = recovery(h, obs)
 
@@ -944,6 +951,7 @@ def train(
                 final_index = (torch.ones(batch_size) * 23).to(device)
                 # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
                 current_batch_size = x.size(0)
+                '''
                 if h_prev is not None and h_prev.size(0) != current_batch_size:
                     h_prev = h_prev[:current_batch_size, :]
 
@@ -960,7 +968,8 @@ def train(
                     h_prev = h.detach()
                 else:
                     h_prev = None
-                #h = embedder(time, train_coeffs, final_index)
+                '''
+                h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
                 times = times.unsqueeze(2)
@@ -1091,7 +1100,7 @@ def main():
     parser.add_argument("--model1", type=str, default='gtgan')
     parser.add_argument("--model2", type=str, default='add_discriminator')
     parser.add_argument("--seq-len", type=int, default=24)
-    parser.add_argument("--batch-size", type=int, default=24)
+    parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--max-steps", type=int, default=10000)
     parser.add_argument("--max-steps-metric", type=int, default=10)
     parser.add_argument("--gamma", type=float, default=1.0)
