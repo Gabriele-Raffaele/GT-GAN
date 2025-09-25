@@ -937,7 +937,7 @@ def train(
                     h_prev = None
                 '''
                 h = embedder(time, train_coeffs, final_index)
-                loss_s, _ = run_model(args, generator, h, times, z = False)
+                loss_s, _ = run_model(args, generator, h, times, z = False, device=device)
                 x_tilde = recovery(h, obs)
 
                 x_no_nan = x[~torch.isnan(x)]
@@ -990,12 +990,12 @@ def train(
                 #################################################
                 if args.kinetic_energy == None:
                     loss_s, loss = run_model(
-                        args, generator, h, times, device, z=False)
+                        args, generator, h, times, device, z=False, device=device)
                     optimizer_gs.zero_grad(set_to_none=True)
                     loss_s.backward()
                 else:
                     loss_s, loss, reg_state = run_model(
-                        args, generator, h, times, device, z=False)
+                        args, generator, h, times, device, z=False, device=device)
                     optimizer_gs.zero_grad(set_to_none=True)
                     (loss_s+reg_state).backward()
                 optimizer_gs.step()
