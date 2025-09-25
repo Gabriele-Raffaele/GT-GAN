@@ -1133,6 +1133,8 @@ def main():
         data_path = here / 'datasets/dumarey.csv'
         dataset = TimeDataset(data_path, args.seq_len, args.data, args.missing_value)
         batch = dataset[(0, 50)]
+
+        torch.set_printoptions(profile="full", linewidth=200, precision=4)
         print(batch['data'])
         input_size = 15
     elif args.data == 'energy':
@@ -1271,7 +1273,10 @@ def main():
         '''
         generated_data_curr = x_hat.cpu().numpy()
         print("max", dataset.original_max, "min", dataset.original_min)
-        generated_data_real = generated_data_curr * dataset.original_max + dataset.original_min
+        generated_data_real = generated_data_curr.copy()
+        # Denormalizza solo le prime 10 feature continue
+        generated_data_real[:, :, :10] = generated_data_curr[:, :, :10] * (dataset.original_max[:10] - dataset.original_min[:10]) + dataset.original_min[:10]
+        # Le ultime 5 feature (one-hot) restano invariate        
         output_file = pathlib.Path(args.save_dir) / "generated_data_dumarey.npy"
         np.save(output_file.with_suffix(".npy"), generated_data_real)
         print(f"Synthetic data saved in {output_file}")
