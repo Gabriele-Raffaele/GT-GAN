@@ -893,17 +893,17 @@ def train(
                 else:
                     h_prev = None
                 '''
-                with torch.no_grad():
-                    h = embedder(time, train_coeffs, final_index)
-                    times = time
-                    times = times.unsqueeze(0)
-                    times = times.unsqueeze(2)
-                    times = times.repeat(obs.shape[0], 1, 1)
+                
+                h = embedder(time, train_coeffs, final_index)
+                times = time
+                times = times.unsqueeze(0)
+                times = times.unsqueeze(2)
+                times = times.repeat(obs.shape[0], 1, 1)
 
-                    h_hat = run_model(args, generator, z, times, device, z=True)
-                    ##############################################
-                    x_real = recovery(h, obs)
-                    x_fake = recovery(h_hat, obs)
+                h_hat = run_model(args, generator, z, times, device, z=True)
+                ##############################################
+                x_real = recovery(h, obs)
+                x_fake = recovery(h_hat, obs)
                 # --- Discriminator ---
                 y_fake = discriminator(x_fake, obs)
                 y_real = discriminator(x_real, obs)
