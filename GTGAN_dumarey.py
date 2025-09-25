@@ -893,7 +893,7 @@ def train(
                 else:
                     h_prev = None
                 '''
-                
+                #TODO: I want to put with torch.no_grad() but why the performance is worse?
                 h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
@@ -937,6 +937,7 @@ def train(
                     h_prev = None
                 '''
                 h = embedder(time, train_coeffs, final_index)
+                #TODO: Why is this commented? 
                 #loss_s, _ = run_model(args, generator, h, times, z = False)
                 x_tilde = recovery(h, obs)
 
