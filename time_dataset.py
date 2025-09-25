@@ -351,7 +351,7 @@ class TimeDataset(torch.utils.data.Dataset):
 
             self.original_sample = []
             norm_data = normalize(data)
-            print(norm_data[:50])
+            
             ori_seq_data = []
             for i in range(len(norm_data) - seq_len + 1):
                 x = norm_data[i : i + seq_len].copy()
