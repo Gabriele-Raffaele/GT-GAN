@@ -1248,6 +1248,7 @@ def main():
             current_batch_size = x.size(0)
             z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
             time = torch.FloatTensor(list(range(24))).to(device)
+            #TODO: final_index = (torch.ones(current_batch_size) * (args.seq_len - 1)).long().to(device)
             final_index = (torch.ones(current_batch_size) * 23).to(device)
             ###########################################
             times = time

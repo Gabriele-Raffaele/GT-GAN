@@ -328,7 +328,7 @@ class TimeDataset(torch.utils.data.Dataset):
         loc = here / 'datasets'/(data_name+str(missing_rate))
         data = np.loadtxt(data_path, delimiter=",", skiprows=1)
         total_length = len(data)
-        data = data[::-1]
+        
         if os.path.exists(loc):
             tensors = load_data(loc)
             self.train_coeffs = tensors['train_a'], tensors['train_b'], tensors['train_c'], tensors['train_d']
@@ -346,12 +346,12 @@ class TimeDataset(torch.utils.data.Dataset):
                 os.mkdir(loc)
             data = np.loadtxt(data_path, delimiter=",", skiprows=1)
             total_length = len(data)
-            data = data[::-1]
             self.min_val = np.min(data, 0)
             self.max_val = np.max(data, 0) - np.min(data, 0)
 
             self.original_sample = []
             norm_data = normalize(data)
+            print(norm_data)
             ori_seq_data = []
             for i in range(len(norm_data) - seq_len + 1):
                 x = norm_data[i : i + seq_len].copy()
