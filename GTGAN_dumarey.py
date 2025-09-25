@@ -842,6 +842,13 @@ def train(
         embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device(device)))
         recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
         print("Skip Embedding Network Training")
+    
+    if args.resume_joint:
+        print("Load Joint Training")
+        path = here / 'dumarey_model/dumarey_pretrained'
+        generator.load_state_dict(torch.load(path/"generator.pt", map_location=torch.device(device)))
+        discriminator.load_state_dict(torch.load(path/"discriminator.pt", map_location=torch.device(device)))
+        print("Load Joint Training Successfully")
 
     print("Start Joint Training")
     num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
@@ -1121,6 +1128,7 @@ def main():
     parser.add_argument("--log_time", type=int, default=1)
     parser.add_argument("--missing_value",type=float,default=0.0)
     parser.add_argument("--skip_embedding", action="store_true", default=False)
+    parser.add_argument("--resume_joint", action="store_true", default=False)
     here = pathlib.Path(__file__).resolve().parent
     args = parser.parse_args()
     args.effective_shape = args.input_size
