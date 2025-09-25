@@ -809,7 +809,7 @@ def train(
 
             loss_e_0 = _loss_e_0(loss_e_t0)
             loss_e = loss_e_0
-            optimizer_er.zero_grad()
+            optimizer_er.zero_grad(set_to_none=True)
             loss_e.backward()
             optimizer_er.step()
             torch.cuda.empty_cache()
@@ -833,12 +833,12 @@ def train(
             if args.kinetic_energy == None:
                 loss_s, loss = run_model(
                     args, generator, h, times, device, z=False)
-                optimizer_gs.zero_grad()
+                optimizer_gs.zero_grad(set_to_none=True)
                 loss_s.backward()
             else:
                 loss_s, loss, reg_state = run_model(
                     args, generator, h, times, device, z=False)
-                optimizer_gs.zero_grad()
+                optimizer_gs.zero_grad(set_to_none=True)
                 (loss_s+reg_state).backward()
             optimizer_gs.step()
 

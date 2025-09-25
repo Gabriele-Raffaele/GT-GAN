@@ -14,6 +14,8 @@ pip install numba==0.54.0 patsy==0.5.2 sktime==0.4.0 statsmodels==0.13.0 tf-slim
 ### Dumarey 
 !../env/bin/python GTGAN_dumarey.py --skip_embedding --train --data dumarey --dims 32-64-64-32 --atol 1e-3 --rtol 1e-3 --first_epoch 5000 --max-steps 800 --activation exp --last_activation_r softplus --last_activation_d identity --reconstruction 0.01 --kinetic-energy 0.5 --jacobian-norm2 0.1 --directional-penalty 0.05 
 
+python GTGAN_dumarey.py --skip_embedding --train --data dumarey --dims 32-64-64-32 --atol 1e-2 --rtol 1e-3 --first_epoch 3000 --max-steps 1000 --activation exp --last_activation_r softplus --last_activation_d identity --reconstruction 0.01 --kinetic-energy 0.01 --jacobian-norm2 0.01 --directional-penalty 0.01
+python GTGAN_dumarey.py --skip_embedding --train --data dumarey --dims 32-64-64-32 --atol 1e-2 --rtol 1e-3 --first_epoch 3000 --max-steps 1000 --activation exp --last_activation_r sigmoid --last_activation_d identity --reconstruction 0.01 --kinetic-energy 0.01 --jacobian-norm2 0.01 --directional-penalty 0.01
 
 ### regular Stocks dataset
 ~~~

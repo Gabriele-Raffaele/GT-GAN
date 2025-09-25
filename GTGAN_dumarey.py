@@ -811,7 +811,7 @@ def train(
 
                 loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
                 loss_e_0 = _loss_e_0(loss_e_t0)
-                optimizer_er.zero_grad()
+                optimizer_er.zero_grad(set_to_none=True)
                 loss_e_0.backward()
                 optimizer_er.step()
                 torch.cuda.empty_cache()
@@ -886,23 +886,24 @@ def train(
                 else:
                     h_prev = None
                 '''
-                h = embedder(time, train_coeffs, final_index)
-                times = time
-                times = times.unsqueeze(0)
-                times = times.unsqueeze(2)
-                times = times.repeat(obs.shape[0], 1, 1)
+                with torch.no_grad():
+                    h = embedder(time, train_coeffs, final_index)
+                    times = time
+                    times = times.unsqueeze(0)
+                    times = times.unsqueeze(2)
+                    times = times.repeat(obs.shape[0], 1, 1)
 
-                h_hat = run_model(args, generator, z, times, device, z=True)
-                ##############################################
-                x_real = recovery(h, obs)
-                x_fake = recovery(h_hat, obs)
+                    h_hat = run_model(args, generator, z, times, device, z=True)
+                    ##############################################
+                    x_real = recovery(h, obs)
+                    x_fake = recovery(h_hat, obs)
 
                 y_fake = discriminator(x_fake, obs)
                 y_real = discriminator(x_real, obs)
                 loss_d = _loss_d2(y_real, y_fake)
 
                 if loss_d.item() > 0.15:
-                    optimizer_d.zero_grad()
+                    optimizer_d.zero_grad(set_to_none=True)
                     loss_d.backward()
                     optimizer_d.step()
                     torch.cuda.empty_cache()
@@ -939,7 +940,7 @@ def train(
 
                 loss_e_0 = _loss_e_0(loss_e_t0)
                 loss_e = loss_e_0
-                optimizer_er.zero_grad()
+                optimizer_er.zero_grad(set_to_none=True)
                 loss_e.backward()
                 optimizer_er.step()
                 torch.cuda.empty_cache()
@@ -982,12 +983,12 @@ def train(
                 if args.kinetic_energy == None:
                     loss_s, loss = run_model(
                         args, generator, h, times, device, z=False)
-                    optimizer_gs.zero_grad()
+                    optimizer_gs.zero_grad(set_to_none=True)
                     loss_s.backward()
                 else:
                     loss_s, loss, reg_state = run_model(
                         args, generator, h, times, device, z=False)
-                    optimizer_gs.zero_grad()
+                    optimizer_gs.zero_grad(set_to_none=True)
                     (loss_s+reg_state).backward()
                 optimizer_gs.step()
             idx = (start_idx, batch_size)
@@ -1017,10 +1018,10 @@ def train(
             loss_g_v = _loss_g_v(x_tilde_no_nan, x_no_nan)
 
             loss_g = _loss_g3(loss_g_u, loss_g_v)
-            optimizer_gs.zero_grad()
+            optimizer_gs.zero_grad(set_to_none=True)
             loss_g.backward()
             optimizer_gs.step()
-            if step > 1000:
+            if step % 250 == 0:
                 print(
                     "step: "
                     + str(step)
@@ -1038,7 +1039,7 @@ def train(
                     + str(np.round(np.sqrt(loss_e_t0.item()), 4))
                 )
 
-            if step % 500 == 0:
+            if step % 100 == 0:
                 ##############################################
                 # Print discriminative and predictive scores
                 # print(metric_results)
