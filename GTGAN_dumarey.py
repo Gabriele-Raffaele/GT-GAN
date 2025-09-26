@@ -672,6 +672,101 @@ class Multi_Layer_ODENetwork(torch.nn.Module):
                 out = model(out, times)
         return out
 
+class ContinuousGenerator(nn.Module):
+    """
+    Generator che mantiene stato nascosto tra finestre consecutive
+    """
+    def __init__(self, args, base_generator, hidden_size):
+        super().__init__()
+        self.args = args
+        self.base_generator = base_generator
+        self.hidden_size = hidden_size
+        
+        # LSTM per propagazione stato tra finestre
+        self.state_propagator = nn.LSTM(
+            hidden_size, hidden_size, 
+            batch_first=True, num_layers=1
+        )
+        
+        # Proiezioni per integrare stato nascosto
+        self.state_to_noise = nn.Linear(hidden_size, args.effective_shape)
+        self.noise_combiner = nn.Linear(args.effective_shape * 2, args.effective_shape)
+        
+        # Buffer per mantenere stato tra chiamate
+        self.register_buffer('prev_hidden', torch.zeros(1, 1, hidden_size))
+        self.register_buffer('prev_cell', torch.zeros(1, 1, hidden_size))
+        self.state_initialized = False
+        
+    def reset_state(self, batch_size=None):
+        """Reset dello stato nascosto"""
+        if batch_size is None:
+            batch_size = 1
+        
+        device = self.prev_hidden.device
+        self.prev_hidden = torch.zeros(1, batch_size, self.hidden_size, device=device)
+        self.prev_cell = torch.zeros(1, batch_size, self.hidden_size, device=device)
+        self.state_initialized = True
+    
+    def forward(self, z_or_h, times, device, z=True, propagate_state=True):
+        """
+        Forward pass che può gestire sia noise (z=True) sia hidden states (z=False)
+        """
+        batch_size = z_or_h.size(0)
+        
+        # Inizializza stato se necessario
+        if not self.state_initialized or self.prev_hidden.size(1) != batch_size:
+            self.reset_state(batch_size)
+        
+        if z:  # Modalità generazione con noise
+            z = z_or_h
+            
+            if propagate_state and self.state_initialized:
+                # Genera influenza dallo stato precedente
+                state_input = self.prev_hidden.squeeze(0)  # [batch_size, hidden_size]
+                state_noise = self.state_to_noise(state_input)  # [batch_size, effective_shape]
+                
+                # Combina noise originale con influenza dello stato
+                # Usa il primo timestep come rappresentativo
+                combined_noise = self.noise_combiner(
+                    torch.cat([
+                        z[:, 0, :],  # primo timestep del noise
+                        state_noise
+                    ], dim=1)
+                )
+                
+                # Sostituisce primo timestep con noise combinato
+                z_modified = z.clone()
+                z_modified[:, 0, :] = combined_noise
+            else:
+                z_modified = z
+            
+            # Genera output con base generator
+            output = run_model(self.args, self.base_generator, z_modified, times, device, z=True)
+            
+            if propagate_state:
+                # Aggiorna stato nascosto basandosi sull'output generato
+                last_output = output[:, -1:, :]  # [batch_size, 1, hidden_size]
+                
+                _, (new_hidden, new_cell) = self.state_propagator(
+                    last_output, (self.prev_hidden, self.prev_cell)
+                )
+                
+                # Aggiorna stato (detach per evitare backprop infinito)
+                self.prev_hidden = new_hidden.detach()
+                self.prev_cell = new_cell.detach()
+            
+            return output
+            
+        else:  # Modalità supervisione con hidden states
+            h = z_or_h
+            
+            # Per la modalità supervisione, usa il base generator direttamente
+            if self.args.kinetic_energy is None:
+                loss_s, loss = run_model(self.args, self.base_generator, h, times, device, z=False)
+                return loss_s, loss
+            else:
+                loss_s, loss, reg_state = run_model(self.args, self.base_generator, h, times, device, z=False)
+                return loss_s, loss, reg_state
 
 def train(
     args,
@@ -738,7 +833,7 @@ def train(
         loss_d_fake = F.binary_cross_entropy_with_logits(
             y_fake, torch.zeros_like(y_fake))
         return loss_d_real + loss_d_fake
-
+    generator = ContinuousGenerator(args, generator, hidden_size=24).to(device)
     optimizer_er = optim.AdamW(
     chain(embedder.parameters(), recovery.parameters()),
     lr=2e-4, weight_decay=1e-4 ,betas=(0.9, 0.999), eps=1e-8 # Più basso per embedder/recovery
@@ -867,6 +962,10 @@ def train(
     num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
     for step in tqdm(range(1, max_steps+1)):
         h_prev = None
+        # Reset stato del generator all'inizio di ogni epoch
+        if (step - 1) % num_batches_per_epoch == 0:
+            generator.reset_state()
+            print(f"Reset generator state at step {step}")
         for batch_idx in range(num_batches_per_epoch):
             start_idx = batch_idx * batch_size
             for _ in range(2):
@@ -912,7 +1011,8 @@ def train(
                 times = times.unsqueeze(2)
                 times = times.repeat(obs.shape[0], 1, 1)
 
-                h_hat = run_model(args, generator, z, times, device, z=True)
+                #h_hat = run_model(args, generator, z, times, device, z=True)
+                h_hat = generator(z, times, device, z=True, propagate_state=True)
                 ##############################################
                 x_real = recovery(h, obs)
                 x_fake = recovery(h_hat, obs)
@@ -1002,13 +1102,13 @@ def train(
                 times = times.repeat(obs.shape[0], 1, 1)
                 #################################################
                 if args.kinetic_energy == None:
-                    loss_s, loss = run_model(
-                        args, generator, h, times, device, z=False)
+                    #loss_s, loss = run_model(args, generator, h, times, device, z=False)
+                    loss_s, loss = generator(h, times, device, z=False, propagate_state=False)
                     optimizer_gs.zero_grad(set_to_none=True)
                     loss_s.backward()
                 else:
-                    loss_s, loss, reg_state = run_model(
-                        args, generator, h, times, device, z=False)
+                    #loss_s, loss, reg_state = run_model(args, generator, h, times, device, z=False)
+                    loss_s, loss, reg_state = generator(h, times, device, z=False, propagate_state=False)
                     optimizer_gs.zero_grad(set_to_none=True)
                     (loss_s+reg_state).backward()
                 optimizer_gs.step()
@@ -1027,7 +1127,8 @@ def train(
             times = time.unsqueeze(0)
             times = times.unsqueeze(2)
             times = times.repeat(obs.shape[0], 1, 1)
-            h_hat = run_model(args, generator, z, times, device, z=True)
+            #h_hat = run_model(args, generator, z, times, device, z=True)
+            h_hat = generator(z, times, device, z=True, propagate_state=True)
 
             x_hat = recovery(h_hat, obs)
             y_fake = discriminator(x_hat, obs)
