@@ -739,9 +739,18 @@ def train(
             y_fake, torch.zeros_like(y_fake))
         return loss_d_real + loss_d_fake
 
-    optimizer_er = optim.AdamW(chain(embedder.parameters(), recovery.parameters()))
-    optimizer_gs = optim.AdamW(generator.parameters())
-    optimizer_d = optim.AdamW(discriminator.parameters())
+    optimizer_er = optim.AdamW(
+    chain(embedder.parameters(), recovery.parameters()),
+    lr=2e-4, weight_decay=1e-4 ,betas=(0.9, 0.999), eps=1e-8 # Più basso per embedder/recovery
+    )
+    optimizer_gs = optim.AdamW(
+        generator.parameters(), 
+        lr=1e-4, weight_decay=1e-4 ,betas=(0.9, 0.999) # Ancora più basso per generator
+    )
+    optimizer_d = optim.AdamW(
+        discriminator.parameters(), 
+        lr=2e-4, weight_decay=1e-4 ,betas=(0.9, 0.999) # Discriminator può essere più veloce
+    )
 
     embedder.train()
     generator.train()
@@ -1326,6 +1335,7 @@ def configure_num_threads():
     optimal_threads = max(1, int(total_cores * 2 / 3))
 
     torch.set_num_threads(optimal_threads)
+    torch.backends.mkldnn.enabled = True # Abilita MKL-DNN per ottimizzazioni CPU
     print(f"[INFO] PyTorch user threads configurati a: {optimal_threads} su {total_cores} core disponibili")
 
     return optimal_threads
