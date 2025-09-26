@@ -782,7 +782,7 @@ def train(
                 idx = (start_idx, batch_size)
                 batch = dataset[idx]
                 x = batch['data'].to(device)
-                train_coeffs = batch['inter'].to(device)
+                train_coeffs = batch['inter']
                 original_x = batch['original_data'].to(device)
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
@@ -876,7 +876,7 @@ def train(
                 idx = (start_idx, batch_size)
                 batch = dataset[idx]
                 x = batch['data'].to(device)
-                train_coeffs = batch['inter'].to(device)
+                train_coeffs = batch['inter']
                 original_x = batch['original_data'].to(device)
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
@@ -968,7 +968,7 @@ def train(
                 idx = (start_idx, batch_size)
                 batch = dataset[idx]
                 x = batch['data'].to(device)
-                train_coeffs = batch['inter'].to(device)
+                train_coeffs = batch['inter']
                 original_x = batch['original_data'].to(device)
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
@@ -1015,7 +1015,7 @@ def train(
             idx = (start_idx, batch_size)
             batch = dataset[idx]
             x = batch['data'].to(device)
-            train_coeffs = batch['inter'].to(device)
+            train_coeffs = batch['inter']
             original_x = batch['original_data'].to(device)
             obs = x[:, :, -1]
             x = x[:, :, :-1]
