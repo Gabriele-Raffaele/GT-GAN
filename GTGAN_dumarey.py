@@ -788,7 +788,7 @@ def train(
                 x = x[:, :, :-1]
                 #final_index = obs[:,-1]
                 time = torch.FloatTensor(list(range(24))).to(device)
-                final_index = (torch.ones(batch_size) * 23).to(device)
+                final_index = (torch.ones(batch_size) * (args.seq_len - 1)).to(device)
                 #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
                 ###########################################
                 h= embedder(time, train_coeffs, final_index)
@@ -884,7 +884,7 @@ def train(
                 z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
 
                 time = torch.FloatTensor(list(range(24))).to(device)
-                final_index = (torch.ones(current_batch_size) * 23).to(device)
+                final_index = (torch.ones(current_batch_size) * (args.seq_len - 1)).to(device)
                 #############Generator#####################
                 # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
                 current_batch_size = x.size(0)
@@ -973,7 +973,7 @@ def train(
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
                 time = torch.FloatTensor(list(range(24))).to(device)
-                final_index = (torch.ones(batch_size) * 23).to(device)
+                final_index = (torch.ones(batch_size) * (args.seq_len - 1)).to(device)
                 # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
                 current_batch_size = x.size(0)
                 '''
@@ -1022,7 +1022,7 @@ def train(
             current_batch_size = x.size(0)
             z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
             time = torch.FloatTensor(list(range(24))).to(device)
-            final_index = (torch.ones(current_batch_size) * 23).to(device)
+            final_index = (torch.ones(current_batch_size) * (args.seq_len - 1)).to(device)
             h = embedder(time, train_coeffs, final_index)
             times = time.unsqueeze(0)
             times = times.unsqueeze(2)
@@ -1292,8 +1292,7 @@ def main():
             current_batch_size = x.size(0)
             z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
             time = torch.FloatTensor(list(range(24))).to(device)
-            #TODO: final_index = (torch.ones(current_batch_size) * (args.seq_len - 1)).long().to(device)
-            final_index = (torch.ones(current_batch_size) * 23).to(device)
+            final_index = (torch.ones(current_batch_size) * (args.seq_len - 1)).to(device)
             ###########################################
             times = time
             times = times.unsqueeze(0)
@@ -1355,7 +1354,7 @@ def configure_num_threads():
     total_cores = multiprocessing.cpu_count()
 
     # Regola euristica: usa 2/3 dei core (evita overhead e lascia spazio al sistema)
-    optimal_threads = max(1, int(total_cores * 2 / 3))
+    optimal_threads = max(1, int(total_cores ))
 
     torch.set_num_threads(optimal_threads)
     torch.backends.mkldnn.enabled = True # Abilita MKL-DNN per ottimizzazioni CPU
