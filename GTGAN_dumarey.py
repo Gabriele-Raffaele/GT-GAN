@@ -1160,7 +1160,6 @@ def main():
     # Massimizza le performance GPU
     torch.backends.cudnn.benchmark = True          # Auto-tuning per convoluzioni e operazioni matriciali
     torch.backends.cudnn.deterministic = False     # Non forzare determinismo (più veloce)
-    torch.set_float32_matmul_precision('medium')   # Precisione ridotta per operazioni float32
     if torch.cuda.device_count() > 1:
         print(f"Using {torch.cuda.device_count()} GPUs!")
         embedder = torch.nn.DataParallel(embedder)
