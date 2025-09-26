@@ -1073,12 +1073,22 @@ def train(
                         "generator{}.pt".format(str(step)))
                 torch.save(discriminator.state_dict(), path /
                         "discriminator{}.pt".format(str(step)))
+                torch.save(optimizer_er.state_dict(), path /
+                        "optimizer_er{}.pt".format(str(step)))
+                torch.save(optimizer_gs.state_dict(), path /
+                        "optimizer_gs{}.pt".format(str(step)))
+                torch.save(optimizer_d.state_dict(), path /
+                        "optimizer_d{}.pt".format(str(step)))
+                ##############################################
 
     print("Finish Joint Training")
     torch.save(embedder.state_dict(), path / "embedder.pt")
     torch.save(recovery.state_dict(), path / "recovery.pt")
     torch.save(generator.state_dict(), path / "generator.pt")
     torch.save(discriminator.state_dict(), path / "discriminator.pt")
+    torch.save(optimizer_er.state_dict(), path / "optimizer_er.pt")
+    torch.save(optimizer_gs.state_dict(), path / "optimizer_gs.pt")
+    torch.save(optimizer_d.state_dict(), path / "optimizer_d.pt")
     #return generated_data_curr
 
 
