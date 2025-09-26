@@ -1168,7 +1168,7 @@ def main():
         generator = torch.nn.DataParallel(generator)
         discriminator = torch.nn.DataParallel(discriminator)
     print(device)
-    print ("number of gpus: ", torch.cuda.device_count())
+
     if args.data == 'stock':
         data_path = here / 'datasets/stock_data.csv'
         dataset = TimeDataset_irregular(data_path, args.seq_len,args.data,args.missing_value)
