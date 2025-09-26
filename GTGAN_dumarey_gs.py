@@ -980,89 +980,101 @@ def train(
     num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
     print("Number of batches per epoch:", num_batches_per_epoch)
     print("Dataset length:", len(dataset))
-    print("Start Embedding Network Training")
-    for epoch in tqdm(range(num_epochs_embedder)):
-        h_prev = None
-        for batch_idx in range(num_batches_per_epoch):
-            start_idx = batch_idx * batch_size
-            idx = (start_idx, batch_size)
-            batch = dataset[idx]
-            x = batch['data'].to(device)
-            train_coeffs = batch['inter']#.to(device)
-            original_x = batch['original_data'].to(device)
-            obs = x[:, :, -1]
-            x = x[:, :, :-1]
-            ### Gumbel-Softmax preprocessing for last 5 features ###
-            # Applica preprocessing con temperatura corrente
-            current_temp = temp_scheduler.get_temperature(epoch)
-            x_processed = data_preprocessor.preprocess_for_training(x, current_temp)
-            #######################################################
-            #final_index = obs[:,-1]
-            time = torch.FloatTensor(list(range(24))).to(device)
-            final_index = (torch.ones(batch_size) * 23).to(device)
-            #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
-            ###########################################
-            h= embedder(time, train_coeffs, final_index)
+    if not args.skip_embedding:
+        print("Start Embedding Network Training")
+        for epoch in tqdm(range(num_epochs_embedder)):
+            h_prev = None
+            for batch_idx in range(num_batches_per_epoch):
+                start_idx = batch_idx * batch_size
+                idx = (start_idx, batch_size)
+                batch = dataset[idx]
+                x = batch['data'].to(device)
+                train_coeffs = batch['inter']#.to(device)
+                original_x = batch['original_data'].to(device)
+                obs = x[:, :, -1]
+                x = x[:, :, :-1]
+                ### Gumbel-Softmax preprocessing for last 5 features ###
+                # Applica preprocessing con temperatura corrente
+                current_temp = temp_scheduler.get_temperature(epoch)
+                x_processed = data_preprocessor.preprocess_for_training(x, current_temp)
+                #######################################################
+                #final_index = obs[:,-1]
+                time = torch.FloatTensor(list(range(24))).to(device)
+                final_index = (torch.ones(batch_size) * 23).to(device)
+                #train_coeffs = controldiffeq.natural_cubic_spline_coeffs(time, x)
+                ###########################################
+                h= embedder(time, train_coeffs, final_index)
 
-            # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
-            current_batch_size = x.size(0)
-            '''
-            if h_prev is not None and h_prev.size(0) != current_batch_size:
-                h_prev = h_prev[:current_batch_size, :]
+                # Adatta h_prev alla dimensione del batch corrente prima di passarlo all'embedder
+                current_batch_size = x.size(0)
+                '''
+                if h_prev is not None and h_prev.size(0) != current_batch_size:
+                    h_prev = h_prev[:current_batch_size, :]
 
-            # Passaggio dello stato tra finestre consecutive nell'embedding
-            if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
-                h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
-            else:
-                h = embedder(time, train_coeffs, final_index)
+                # Passaggio dello stato tra finestre consecutive nell'embedding
+                if hasattr(embedder, "forward") and "h_prev" in embedder.forward.__code__.co_varnames:
+                    h = embedder(time, train_coeffs, final_index, h_prev=h_prev)
+                else:
+                    h = embedder(time, train_coeffs, final_index)
 
-            # Aggiorna h_prev con lo stato finale della finestra
-            if isinstance(h, torch.Tensor) and h.ndim == 3:
-                h_prev = h[:, -1, :].detach()
-            elif isinstance(h, torch.Tensor) and h.ndim == 2:
-                h_prev = h.detach()
-            else:
-                h_prev = None
-            '''
-            ###########################################
-            x_tilde = recovery(h, obs)
-            '''
-            x_no_nan = x[~torch.isnan(x)]
-            x_tilde_no_nan = x_tilde[~torch.isnan(x)]
+                # Aggiorna h_prev con lo stato finale della finestra
+                if isinstance(h, torch.Tensor) and h.ndim == 3:
+                    h_prev = h[:, -1, :].detach()
+                elif isinstance(h, torch.Tensor) and h.ndim == 2:
+                    h_prev = h.detach()
+                else:
+                    h_prev = None
+                '''
+                ###########################################
+                x_tilde = recovery(h, obs)
+                '''
+                x_no_nan = x[~torch.isnan(x)]
+                x_tilde_no_nan = x_tilde[~torch.isnan(x)]
 
-            loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
-            '''
-            # Use custom loss for continuous + categorical features
-            loss_e_t0 = mixed_loss.reconstruction_loss(x_tilde, x_processed)
-            loss_e_0 = _loss_e_0(loss_e_t0)
-            optimizer_er.zero_grad()
-            loss_e_0.backward()
-            optimizer_er.step()
-            torch.cuda.empty_cache()
-        
-        if epoch % 500  == 0:
-            print(
-                "step: "
-                + str(epoch)
-                + "/"
-                + str(args.first_epoch)
-                + ", loss_e: "
-                + str(np.round(np.sqrt(loss_e_t0.item()), 4))
-            )
+                loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
+                '''
+                # Use custom loss for continuous + categorical features
+                loss_e_t0 = mixed_loss.reconstruction_loss(x_tilde, x_processed)
+                loss_e_0 = _loss_e_0(loss_e_t0)
+                optimizer_er.zero_grad(set_to_none=True)
+                loss_e_0.backward()
+                optimizer_er.step()
+                torch.cuda.empty_cache()
             
-    print("Finish Embedding Network Training")
+            if epoch % 500  == 0:
+                print(
+                    "step: "
+                    + str(epoch)
+                    + "/"
+                    + str(args.first_epoch)
+                    + ", loss_e: "
+                    + str(np.round(np.sqrt(loss_e_t0.item()), 4))
+                )
+                
+        print("Finish Embedding Network Training")
+        path = here / 'dumarey_model/dumarey_pretrained'
+        #print(load)
+        #if not load:
+        #    torch.save(embedder.state_dict(), path/"embedder.pt")
+        #    torch.save(recovery.state_dict(), path/"recovery.pt")
+        os.makedirs(path, exist_ok=True)
+        torch.save(embedder.state_dict(), path/"embedder.pt")
+        torch.save(recovery.state_dict(), path/"recovery.pt")
+        embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device(device)))
+        recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
+    else:
+        path = here / 'dumarey_model/dumarey_pretrained'
+        embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device(device)))
+        recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
 
+    if args.resume_joint:
+        print("Load Joint Training")
+        path = here / 'dumarey_model/dumarey_pretrained'
+        generator.load_state_dict(torch.load(path/"generator.pt", map_location=torch.device(device)))
+        discriminator.load_state_dict(torch.load(path/"discriminator.pt", map_location=torch.device(device)))
+        print("Load Joint Training Successfully")
     
-    path = here / 'dumarey_model/dumarey_pretrained'
-    #print(load)
-    #if not load:
-    #    torch.save(embedder.state_dict(), path/"embedder.pt")
-    #    torch.save(recovery.state_dict(), path/"recovery.pt")
-    os.makedirs(path, exist_ok=True)
-    torch.save(embedder.state_dict(), path/"embedder.pt")
-    torch.save(recovery.state_dict(), path/"recovery.pt")
-    embedder.load_state_dict(torch.load(path/"embedder.pt", map_location=torch.device(device)))
-    recovery.load_state_dict(torch.load(path/"recovery.pt", map_location=torch.device(device)))
+    
 
     print("Start Joint Training")
     num_batches_per_epoch = math.ceil(len(dataset) / batch_size)
@@ -1126,7 +1138,7 @@ def train(
                 loss_d = _loss_d2(y_real, y_fake)
 
                 if loss_d.item() > 0.15:
-                    optimizer_d.zero_grad()
+                    optimizer_d.zero_grad(set_to_none=True)
                     loss_d.backward()
                     optimizer_d.step()
                     torch.cuda.empty_cache()
@@ -1165,7 +1177,7 @@ def train(
                 loss_e_t0 = mixed_loss.reconstruction_loss(x_tilde, x_processed)
                 loss_e_0 = _loss_e_0(loss_e_t0)
                 loss_e = loss_e_0
-                optimizer_er.zero_grad()
+                optimizer_er.zero_grad(set_to_none=True)
                 loss_e.backward()
                 optimizer_er.step()
                 torch.cuda.empty_cache()
@@ -1213,12 +1225,12 @@ def train(
                 if args.kinetic_energy == None:
                     loss_s, loss = run_model(
                         args, generator, h, times, device, z=False)
-                    optimizer_gs.zero_grad()
+                    optimizer_gs.zero_grad(set_to_none=True)
                     loss_s.backward()
                 else:
                     loss_s, loss, reg_state = run_model(
                         args, generator, h, times, device, z=False)
-                    optimizer_gs.zero_grad()
+                    optimizer_gs.zero_grad(set_to_none=True)
                     (loss_s+reg_state).backward()
                 optimizer_gs.step()
             idx = (start_idx, batch_size)
@@ -1259,10 +1271,10 @@ def train(
             loss_kl = torch.sum(p_empirical * torch.log((p_empirical + eps) / (q_generated + eps)))
             loss_g = loss_g + lambda_kl * loss_kl'''
 
-            optimizer_gs.zero_grad()
+            optimizer_gs.zero_grad(set_to_none=True)
             loss_g.backward()
             optimizer_gs.step()
-            if step > 1000:
+            if step > 250:
                 print(
                     "step: "
                     + str(step)
@@ -1280,7 +1292,7 @@ def train(
                     + str(np.round(np.sqrt(loss_e_t0.item()), 4))
                 )
 
-            if step % 500 == 0:
+            if step % 100 == 0:
                 ##############################################
                 # Print discriminative and predictive scores
                 # print(metric_results)
@@ -1360,6 +1372,8 @@ def main():
     parser.add_argument("--first_epoch", type=int, default=10000)
     parser.add_argument("--log_time", type=int, default=1)
     parser.add_argument("--missing_value",type=float,default=0.0)
+    parser.add_argument("--skip_embedding", action="store_true", default=False)
+    parser.add_argument("--resume_joint", action="store_true", default=False)
     here = pathlib.Path(__file__).resolve().parent
     args = parser.parse_args()
     args.effective_shape = args.input_size

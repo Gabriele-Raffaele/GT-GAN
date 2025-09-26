@@ -738,9 +738,9 @@ def train(
             y_fake, torch.zeros_like(y_fake))
         return loss_d_real + loss_d_fake
 
-    optimizer_er = optim.Adam(chain(embedder.parameters(), recovery.parameters()))
-    optimizer_gs = optim.Adam(generator.parameters())
-    optimizer_d = optim.Adam(discriminator.parameters())
+    optimizer_er = optim.AdamW(chain(embedder.parameters(), recovery.parameters()))
+    optimizer_gs = optim.AdamW(generator.parameters())
+    optimizer_d = optim.AdamW(discriminator.parameters())
 
     embedder.train()
     generator.train()
