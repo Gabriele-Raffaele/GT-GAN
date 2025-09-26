@@ -782,7 +782,7 @@ def train(
                 idx = (start_idx, batch_size)
                 batch = dataset[idx]
                 x = batch['data'].to(device)
-                train_coeffs = batch['inter']#.to(device)
+                train_coeffs = batch['inter'].to(device)
                 original_x = batch['original_data'].to(device)
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
@@ -876,7 +876,7 @@ def train(
                 idx = (start_idx, batch_size)
                 batch = dataset[idx]
                 x = batch['data'].to(device)
-                train_coeffs = batch['inter']#.to(device)
+                train_coeffs = batch['inter'].to(device)
                 original_x = batch['original_data'].to(device)
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
@@ -968,7 +968,7 @@ def train(
                 idx = (start_idx, batch_size)
                 batch = dataset[idx]
                 x = batch['data'].to(device)
-                train_coeffs = batch['inter']#.to(device)
+                train_coeffs = batch['inter'].to(device)
                 original_x = batch['original_data'].to(device)
                 obs = x[:, :, -1]
                 x = x[:, :, :-1]
@@ -1015,7 +1015,7 @@ def train(
             idx = (start_idx, batch_size)
             batch = dataset[idx]
             x = batch['data'].to(device)
-            train_coeffs = batch['inter']#.to(device)
+            train_coeffs = batch['inter'].to(device)
             original_x = batch['original_data'].to(device)
             obs = x[:, :, -1]
             x = x[:, :, :-1]
@@ -1157,7 +1157,18 @@ def main():
     args.effective_shape = args.input_size
     # args.aug_mapping = True
     device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
+    # Massimizza le performance GPU
+    torch.backends.cudnn.benchmark = True          # Auto-tuning per convoluzioni e operazioni matriciali
+    torch.backends.cudnn.deterministic = False     # Non forzare determinismo (più veloce)
+    torch.set_float32_matmul_precision('medium')   # Precisione ridotta per operazioni float32
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs!")
+        embedder = torch.nn.DataParallel(embedder)
+        recovery = torch.nn.DataParallel(recovery)
+        generator = torch.nn.DataParallel(generator)
+        discriminator = torch.nn.DataParallel(discriminator)
     print(device)
+    print ("number of gpus: ", torch.cuda.device_count())
     if args.data == 'stock':
         data_path = here / 'datasets/stock_data.csv'
         dataset = TimeDataset_irregular(data_path, args.seq_len,args.data,args.missing_value)
