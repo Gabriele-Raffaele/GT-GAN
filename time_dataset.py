@@ -345,6 +345,7 @@ class TimeDataset(torch.utils.data.Dataset):
             if not os.path.exists(loc):
                 os.mkdir(loc)
             data = np.loadtxt(data_path, delimiter=",", skiprows=1)
+            data = data[::-1]
             total_length = len(data)
             self.min_val = np.min(data, 0)
             self.max_val = np.max(data, 0) - np.min(data, 0)
