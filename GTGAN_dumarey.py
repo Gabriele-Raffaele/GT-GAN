@@ -910,7 +910,7 @@ def train(
                 loss_d = _loss_d2(y_real, y_fake)
 
                 if loss_d.item() > 0.15:
-                    optimizer_d.zero_grad()
+                    optimizer_d.zero_grad(set_to_none=True)
                     loss_d.backward()
                     optimizer_d.step()
                     torch.cuda.empty_cache()
