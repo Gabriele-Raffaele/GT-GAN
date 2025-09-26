@@ -692,81 +692,120 @@ class ContinuousGenerator(nn.Module):
         self.state_to_noise = nn.Linear(hidden_size, args.effective_shape)
         self.noise_combiner = nn.Linear(args.effective_shape * 2, args.effective_shape)
         
-        # Buffer per mantenere stato tra chiamate
-        self.register_buffer('prev_hidden', torch.zeros(1, 1, hidden_size))
-        self.register_buffer('prev_cell', torch.zeros(1, 1, hidden_size))
-        self.state_initialized = False
+        # Stato globale che persiste tra chiamate (NUOVO)
+        self.global_hidden = None
+        self.global_cell = None
         
     def reset_state(self, batch_size=None):
         """Reset dello stato nascosto"""
-        if batch_size is None:
-            batch_size = 1
+        self.global_hidden = None
+        self.global_cell = None
         
-        device = self.prev_hidden.device
-        self.prev_hidden = torch.zeros(1, batch_size, self.hidden_size, device=device)
-        self.prev_cell = torch.zeros(1, batch_size, self.hidden_size, device=device)
-        self.state_initialized = True
+    def forward_single_window(self, z_single, times_single, device, z=True, use_global_state=True):
+        """
+        NUOVO: Forward per una singola finestra, mantenendo stato globale
+        """
+        batch_size = z_single.size(0)
+        
+        if z:  # Modalità generazione
+            if use_global_state and self.global_hidden is not None:
+                # Usa stato globale dalla finestra precedente
+                if self.global_hidden.size(1) != batch_size:
+                    # Adatta dimensione se necessario
+                    self.global_hidden = self.global_hidden[:, :batch_size, :].contiguous()
+                    self.global_cell = self.global_cell[:, :batch_size, :].contiguous()
+                
+                # Genera influenza dallo stato precedente
+                state_input = self.global_hidden.squeeze(0)  # [batch_size, hidden_size]
+                state_noise = self.state_to_noise(state_input)
+                
+                # Combina con noise originale
+                combined_noise = self.noise_combiner(
+                    torch.cat([z_single[:, 0, :], state_noise], dim=1)
+                )
+                
+                z_modified = z_single.clone()
+                z_modified[:, 0, :] = combined_noise
+            else:
+                z_modified = z_single
+                
+            # Genera output
+            output = run_model(self.args, self.base_generator, z_modified, times_single, device, z=True)
+            
+            if use_global_state:
+                # Aggiorna stato globale
+                last_output = output[:, -1:, :]  # [batch_size, 1, hidden_size]
+                
+                if self.global_hidden is None:
+                    # Prima finestra - inizializza stato
+                    h0 = torch.zeros(1, batch_size, self.hidden_size, device=device)
+                    c0 = torch.zeros(1, batch_size, self.hidden_size, device=device)
+                    prev_state = (h0, c0)
+                else:
+                    prev_state = (self.global_hidden, self.global_cell)
+                
+                _, (new_hidden, new_cell) = self.state_propagator(last_output, prev_state)
+                
+                # Salva nuovo stato globale (detached)
+                self.global_hidden = new_hidden.detach()
+                self.global_cell = new_cell.detach()
+            
+            return output
+        else:
+            # Modalità supervisione - usa direttamente base generator
+            if self.args.kinetic_energy is None:
+                return run_model(self.args, self.base_generator, z_single, times_single, device, z=False)
+            else:
+                return run_model(self.args, self.base_generator, z_single, times_single, device, z=False)
     
     def forward(self, z_or_h, times, device, z=True, propagate_state=True):
         """
-        Forward pass che può gestire sia noise (z=True) sia hidden states (z=False)
+        Mantiene compatibilità con il codice esistente
         """
-        batch_size = z_or_h.size(0)
-        
-        # Inizializza stato se necessario
-        if not self.state_initialized or self.prev_hidden.size(1) != batch_size:
-            self.reset_state(batch_size)
-        
-        if z:  # Modalità generazione con noise
-            z = z_or_h
+        if propagate_state:
+            # NUOVO: Se propagate_state=True, processa sequenzialmente
+            batch_size = z_or_h.size(0)
+            all_outputs = []
             
-            if propagate_state and self.state_initialized:
-                # Genera influenza dallo stato precedente
-                state_input = self.prev_hidden.squeeze(0)  # [batch_size, hidden_size]
-                state_noise = self.state_to_noise(state_input)  # [batch_size, effective_shape]
+            for i in range(batch_size):
+                single_input = z_or_h[i:i+1]
+                single_times = times[i:i+1]
                 
-                # Combina noise originale con influenza dello stato
-                # Usa il primo timestep come rappresentativo
-                combined_noise = self.noise_combiner(
-                    torch.cat([
-                        z[:, 0, :],  # primo timestep del noise
-                        state_noise
-                    ], dim=1)
-                )
+                if z:
+                    output = self.forward_single_window(single_input, single_times, device, z=True, use_global_state=True)
+                else:
+                    output = self.forward_single_window(single_input, single_times, device, z=False, use_global_state=False)
                 
-                # Sostituisce primo timestep con noise combinato
-                z_modified = z.clone()
-                z_modified[:, 0, :] = combined_noise
+                all_outputs.append(output)
+            
+            # Ricostruisci batch
+            if z:
+                return torch.cat(all_outputs, dim=0)
             else:
-                z_modified = z
+                if self.args.kinetic_energy is None:
+                    losses = [out[0] for out in all_outputs]
+                    return torch.mean(torch.stack(losses)), None
+                else:
+                    losses_s = [out[0] for out in all_outputs]
+                    losses = [out[1] for out in all_outputs]  
+                    reg_states = [out[2] for out in all_outputs]
+                    return torch.mean(torch.stack(losses_s)), torch.mean(torch.stack(losses)), torch.mean(torch.stack(reg_states))
+        else:
+            # Modalità compatibilità - usa implementazione originale
+            batch_size = z_or_h.size(0)
             
-            # Genera output con base generator
-            output = run_model(self.args, self.base_generator, z_modified, times, device, z=True)
-            
-            if propagate_state:
-                # Aggiorna stato nascosto basandosi sull'output generato
-                last_output = output[:, -1:, :]  # [batch_size, 1, hidden_size]
-                
-                _, (new_hidden, new_cell) = self.state_propagator(
-                    last_output, (self.prev_hidden, self.prev_cell)
-                )
-                
-                # Aggiorna stato (detach per evitare backprop infinito)
-                self.prev_hidden = new_hidden.detach()
-                self.prev_cell = new_cell.detach()
-            
-            return output
-            
-        else:  # Modalità supervisione con hidden states
-            h = z_or_h
-            
-            # Per la modalità supervisione, usa il base generator direttamente
-            if self.args.kinetic_energy is None:
-                loss_s, loss = run_model(self.args, self.base_generator, h, times, device, z=False)
-                return loss_s, loss
-            else:
-                loss_s, loss, reg_state = run_model(self.args, self.base_generator, h, times, device, z=False)
-                return loss_s, loss, reg_state
+            if z:  # Modalità generazione con noise
+                z = z_or_h
+                output = run_model(self.args, self.base_generator, z, times, device, z=True)
+                return output
+            else:  # Modalità supervisione con hidden states
+                h = z_or_h
+                if self.args.kinetic_energy is None:
+                    loss_s, loss = run_model(self.args, self.base_generator, h, times, device, z=False)
+                    return loss_s, loss
+                else:
+                    loss_s, loss, reg_state = run_model(self.args, self.base_generator, h, times, device, z=False)
+                    return loss_s, loss, reg_state
 
 def train(
     args,
@@ -1012,8 +1051,7 @@ def train(
                 times = times.repeat(obs.shape[0], 1, 1)
 
                 #h_hat = run_model(args, generator, z, times, device, z=True)
-                h_hat = generator(z, times, device, z=True, propagate_state=True)
-                ##############################################
+                h_hat = generator(z, times, device, z=True, propagate_state=args.sequential_generation)
                 x_real = recovery(h, obs)
                 x_fake = recovery(h_hat, obs)
                 # --- Discriminator ---
@@ -1253,6 +1291,7 @@ def main():
     parser.add_argument("--missing_value",type=float,default=0.0)
     parser.add_argument("--skip_embedding", action="store_true", default=False)
     parser.add_argument("--resume_joint", action="store_true", default=False)
+    parser.add_argument("--sequential_generation", action="store_true", default=True, help="Enable sequential generation between windows")
     here = pathlib.Path(__file__).resolve().parent
     args = parser.parse_args()
     args.effective_shape = args.input_size
@@ -1276,9 +1315,9 @@ def main():
         data_path = here / 'datasets/energy_data.csv'
         dataset = TimeDataset(data_path, args.seq_len, args.data, args.missing_value)
         input_size = 28
-    hidden_size = 24
+    hidden_size = args.seq_len
     num_layers = 3
-    x_hidden = 48
+    x_hidden = 2* hidden_size
     path = here
     args.save_dir = path / args.save_dir
     os.makedirs(args.save_dir, exist_ok=True)
@@ -1374,7 +1413,7 @@ def main():
         # visualize(dataset, device, generated_data,args)
     else:
         path = here / 'dumarey_model/dumarey_pretrained'
-        generator.load_state_dict(torch.load(path / "generator.pt", map_location=torch.device(device)))
+        #generator.load_state_dict(torch.load(path / "generator.pt", map_location=torch.device(device)))
         recovery.load_state_dict(torch.load(path / "recovery.pt", map_location=torch.device(device)))
 
         batch = dataset[(0, len(dataset))]
@@ -1382,7 +1421,7 @@ def main():
         seq_len = x.shape[1]
         input_size = x.shape[2] - 1
         dataset_size = dataset.size
-
+        '''
         with torch.no_grad():
             batch = dataset[(0, len(dataset))]
             x = batch['data'].to(device)
@@ -1403,6 +1442,36 @@ def main():
             ###########################################
             x_hat = recovery(h_hat, obs)
             x = original_x
+        ''' 
+
+        # Crea ContinuousGenerator e carica stato
+        continuous_gen = ContinuousGenerator(args, generator, hidden_size=24).to(device)
+        continuous_gen.load_state_dict(torch.load(path / "generator.pt", map_location=device))
+        continuous_gen.reset_state()  # Reset per inferenza
+        with torch.no_grad():  
+           
+            
+            # ... resto del setup ...
+            batch = dataset[(0, len(dataset))]
+            x = batch['data'].to(device)
+            train_coeffs = batch['inter']#.to(device)
+            original_x = batch['original_data'].to(device)
+            obs = x[:, :, -1]
+            x = x[:, :, :-1]
+            current_batch_size = x.size(0)
+            z = torch.randn(current_batch_size, x.size(1), args.effective_shape).to(device)
+            time = torch.FloatTensor(list(range(24))).to(device)
+            final_index = (torch.ones(current_batch_size) * (args.seq_len - 1)).to(device)
+            ###########################################
+            times = time
+            times = times.unsqueeze(0)
+            times = times.unsqueeze(2)
+            times = times.repeat(obs.shape[0], 1, 1)
+            # Genera con sequenzialità
+            h_hat = continuous_gen(z, times, device, z=True, propagate_state=True)
+            x_hat = recovery(h_hat, obs)
+            x = original_x
+
 
         '''
         generated_data_curr = x.cpu().numpy()
