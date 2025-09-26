@@ -32,6 +32,7 @@ import numpy as np
 import torch
 import tensorflow as tf
 import math
+import multiprocessing
 random_seed = 7777
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
@@ -1316,5 +1317,20 @@ def main():
         print(metric_results)
         '''
 
+
+def configure_num_threads():
+    # Numero totale di core logici disponibili
+    total_cores = multiprocessing.cpu_count()
+
+    # Regola euristica: usa 2/3 dei core (evita overhead e lascia spazio al sistema)
+    optimal_threads = max(1, int(total_cores * 2 / 3))
+
+    torch.set_num_threads(optimal_threads)
+    print(f"[INFO] PyTorch user threads configurati a: {optimal_threads} su {total_cores} core disponibili")
+
+    return optimal_threads
+
 if __name__ == "__main__":
+    optimal_threads = configure_num_threads()
     main()
+
