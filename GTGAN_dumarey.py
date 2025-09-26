@@ -936,13 +936,13 @@ def train(
                 else:
                     h_prev = None
                 '''
-                h = embedder(time, train_coeffs, final_index)
+                #h = embedder(time, train_coeffs, final_index)
                 #TODO: Why is this commented? 
                 #loss_s, _ = run_model(args, generator, h, times, z = False)
-                x_tilde = recovery(h, obs)
+                #x_tilde = recovery(h, obs)
 
                 x_no_nan = x[~torch.isnan(x)]
-                x_tilde_no_nan = x_tilde[~torch.isnan(x)]
+                x_tilde_no_nan = x_real[~torch.isnan(x)]
                 
                 loss_e_t0 = _loss_e_t0(x_tilde_no_nan, x_no_nan)
 
