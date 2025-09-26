@@ -858,6 +858,9 @@ def train(
         path = here / 'dumarey_model/dumarey_pretrained'
         generator.load_state_dict(torch.load(path/"generator.pt", map_location=torch.device(device)))
         discriminator.load_state_dict(torch.load(path/"discriminator.pt", map_location=torch.device(device)))
+        optimizer_gs.load_state_dict(torch.load(path/"optimizer_gs.pt", map_location=torch.device(device)))
+        optimizer_d.load_state_dict(torch.load(path/"optimizer_d.pt", map_location=torch.device(device)))
+        optimizer_er.load_state_dict(torch.load(path/"optimizer_er.pt", map_location=torch.device(device)))
         print("Load Joint Training Successfully")
 
     print("Start Joint Training")
@@ -903,7 +906,6 @@ def train(
                 else:
                     h_prev = None
                 '''
-                #TODO: I want to put with torch.no_grad() but why the performance is worse?
                 h = embedder(time, train_coeffs, final_index)
                 times = time
                 times = times.unsqueeze(0)
