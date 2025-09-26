@@ -1160,12 +1160,7 @@ def main():
     # Massimizza le performance GPU
     torch.backends.cudnn.benchmark = True          # Auto-tuning per convoluzioni e operazioni matriciali
     torch.backends.cudnn.deterministic = False     # Non forzare determinismo (più veloce)
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs!")
-        embedder = torch.nn.DataParallel(embedder)
-        recovery = torch.nn.DataParallel(recovery)
-        generator = torch.nn.DataParallel(generator)
-        discriminator = torch.nn.DataParallel(discriminator)
+    
     print(device)
 
     if args.data == 'stock':
@@ -1247,6 +1242,12 @@ def main():
                             num_layers, activation_fn=None).to(device)
 
     print('model created')
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs!")
+        embedder = torch.nn.DataParallel(embedder)
+        recovery = torch.nn.DataParallel(recovery)
+        generator = torch.nn.DataParallel(generator)
+        discriminator = torch.nn.DataParallel(discriminator)
     pytorch_total_params = sum(p.numel()
                                for p in generator.parameters() if p.requires_grad)
     print(pytorch_total_params)
